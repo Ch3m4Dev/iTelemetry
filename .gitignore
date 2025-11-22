@@ -1,0 +1,28 @@
+# Dependencias Node
+node_modules/
+
+# Builds de Electron
+dist/
+out/
+release/
+build/
+
+# Entorno virtual Python
+.venv/
+venv/
+
+# Archivos temporales
+.DS_Store
+*.log
+
+# Cachés
+__pycache__/
+*.pyc
+
+# Configuracion local de VSCode
+.vscode/
+
+# Carpetas de electron-builder que no quieres subir
+app/node_modules/
+
+python/

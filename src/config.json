@@ -1,0 +1,15 @@
+{
+  "canvasWidth": 900,
+  "canvasHeight": 240,
+  "maxSamples": 300,
+  "bottomPadding": 12,
+  "colors": {
+    "throttle": "#00ff00",
+    "brake": "#ff0000",
+    "clutch": "#ffff00"
+  },
+  "x": 1421,
+  "y": 911,
+  "width": 587,
+  "height": 133
+}

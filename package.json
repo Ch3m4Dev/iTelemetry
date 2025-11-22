@@ -1,0 +1,62 @@
+{
+  "name": "itelemetry",
+  "version": "1.0.0",
+  "description": "Overlay: throttle, brake, clutch last seconds graph",
+  "main": "src/main.js",
+
+  "scripts": {
+    "start": "electron .",
+    "clean": "powershell -Command \"Remove-Item -Recurse -Force dist -ErrorAction SilentlyContinue\"",
+    "build": "powershell -Command \"Remove-Item -Recurse -Force dist -ErrorAction SilentlyContinue; npx electron-builder\""
+  }
+,
+
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+
+  "devDependencies": {
+    "electron": "^25.5.0",
+    "electron-builder": "^24.13.3"
+  },
+
+  "build": {
+    "appId": "com.itelemetry.overlay",
+    "productName": "iTelemetry Overlay",
+
+    "files": [
+      "!node_modules/*",
+      "!dist/*"
+    ],
+
+    "extraResources": [
+      {
+        "from": "src",
+        "to": "src"
+      },
+      {
+        "from": "python",
+        "to": "python"
+      },
+      {
+        "from": "irbridge.py",
+        "to": "irbridge.py"
+      },
+      {
+        "from": "index.html",
+        "to": "index.html"
+      },
+      {
+        "from": "config.json",
+        "to": "config.json"
+      }
+    ],
+
+    "asar": false,
+
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    }
+  }
+}
