@@ -15,14 +15,13 @@ venv/
 .DS_Store
 *.log
 
-# Cachés
+# Cache
 __pycache__/
 *.pyc
 
 # Configuracion local de VSCode
 .vscode/
 
-# Carpetas de electron-builder que no quieres subir
+# Carpetas de electron-builder
 app/node_modules/
-
 python/

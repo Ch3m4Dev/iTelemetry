@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut, screen, ipcMain } = require("electron");
+const { app, BrowserWindow, globalShortcut, screen, ipcMain, Tray, Menu } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { spawn } = require("child_process");
@@ -6,28 +6,23 @@ const { spawn } = require("child_process");
 let win = null;
 let ignoreMouse = true;
 let pyProc = null;
+let manualShow = false;
+let isRunningIRacing = false; // <-- viene del renderer
 
 const isDev = !app.isPackaged;
-
 const configPath = path.join(__dirname, "config.json");
 
 //
 // ---------------- CONFIG ----------------
 //
 function loadOverlayConfig() {
-  try {
-    return JSON.parse(fs.readFileSync(configPath, "utf8"));
-  } catch {
-    return {};
-  }
+  try { return JSON.parse(fs.readFileSync(configPath, "utf8")); }
+  catch { return {}; }
 }
 
 function saveOverlayConfig(cfg) {
-  try {
-    fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2));
-  } catch (e) {
-    console.error("Error guardando config:", e);
-  }
+  try { fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2)); }
+  catch (e) { console.error("Error guardando config:", e); }
 }
 
 function getDefaultPosition(width, height) {
@@ -66,21 +61,12 @@ function createWindow() {
   // ---- LANZAR IRBRIDGE ----
   //
   const { pythonPath, irbridgePath, pythonCwd } = getPythonPaths();
-
-  console.log("PYTHON =", pythonPath);
-  console.log("IRBRIDGE =", irbridgePath);
-  console.log("CWD =", pythonCwd);
-
-  pyProc = spawn(pythonPath, [irbridgePath], {
-    cwd: pythonCwd,
-    stdio: "ignore"
-  });
+  pyProc = spawn(pythonPath, [irbridgePath], { cwd: pythonCwd, stdio: "ignore" });
 
   //
   // ---- CONFIG DEL OVERLAY ----
   //
   let cfg = loadOverlayConfig();
-
   const width = cfg.width ?? 920;
   const height = cfg.height ?? 260;
 
@@ -111,9 +97,7 @@ function createWindow() {
 
   win.setIgnoreMouseEvents(true, { forward: true });
 
-  if (isDev) {
-    win.webContents.openDevTools({ mode: "detach" });
-  }
+  if (isDev) win.webContents.openDevTools({ mode: "detach" });
 
   win.loadFile(path.join(__dirname, "index.html"));
 
@@ -122,10 +106,10 @@ function createWindow() {
   //
   win.on("move", () => {
     const [x, y] = win.getPosition();
-    const newCfg = loadOverlayConfig();
-    newCfg.x = x;
-    newCfg.y = y;
-    saveOverlayConfig(newCfg);
+    const cfg = loadOverlayConfig();
+    cfg.x = x;
+    cfg.y = y;
+    saveOverlayConfig(cfg);
   });
 
   win.on("resize", () => {
@@ -141,37 +125,76 @@ function createWindow() {
   //
   globalShortcut.register("Control+Shift+O", () => {
     ignoreMouse = !ignoreMouse;
-    win.setIgnoreMouseEvents(ignoreMouse, { forward: true });
 
-    if (!ignoreMouse) {
-      // Modo INTERACTIVO → Nvidia sí lo capturará
-      win.setAlwaysOnTop(false);
-      win.setSkipTaskbar(false);
-    } else {
-      // Modo OVERLAY normal
+    if (ignoreMouse) {
+      win.setIgnoreMouseEvents(true, { forward: true });
+      win.setFocusable(false);
       win.setAlwaysOnTop(true);
       win.setSkipTaskbar(true);
+    } else {
+      win.setIgnoreMouseEvents(false);
+      win.setFocusable(true);
+      win.setAlwaysOnTop(false);
+      win.setSkipTaskbar(false);
     }
 
     win.webContents.send("ignore-changed", ignoreMouse);
   });
 
+  globalShortcut.register("Control+Shift+Q", () => app.quit());
 
-  globalShortcut.register("Control+Shift+Q", () => {
-    app.quit();
+  //
+  // ---- CTRL + SHIFT + S (solo cuando iRacing está apagado)
+  //
+  globalShortcut.register("Control+Shift+S", () => {
+    if (!isRunningIRacing) {
+      manualShow = !manualShow;
+      if (manualShow) win.show();
+      else win.hide();
+    }
   });
 
   //
   // --------- IPC OVERLAY SHOW/HIDE ---------
   //
-  ipcMain.on("overlay-hide", () => win.hide());
   ipcMain.on("overlay-show", () => win.show());
+  ipcMain.on("overlay-hide", () => win.hide());
+
+  //
+  // ----- IPC: STATUS DE IRACING -----
+  //
+  ipcMain.on("iracing-running", (_, isRunning) => {
+    isRunningIRacing = isRunning;
+
+    if (isRunningIRacing) {
+      manualShow = false;
+    }
+  });
+}
+
+//
+// -------- SYSTEM TRAY --------
+//
+let tray = null;
+function createTray() {
+  const iconPath = path.join(__dirname, "..", "overlay", "tray_icon.ico");
+  tray = new Tray(iconPath);
+
+  const contextMenu = Menu.buildFromTemplate([
+    { label: "Cerrar Overlay", click: () => app.quit() }
+  ]);
+
+  tray.setToolTip("iTelemetry Overlay");
+  tray.setContextMenu(contextMenu);
 }
 
 //
 // ----------------- APP EVENTS -----------------
 //
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  createTray();
+});
 
 app.on("will-quit", () => {
   globalShortcut.unregisterAll();
