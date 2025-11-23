@@ -6,10 +6,12 @@ let samples = [];
 let maxSamples = 300;
 let lastTs = 0;
 
+// paddings en CSS pixels (configurables)
 const bottomPadding = 1;
 const topPadding = 1;
 const minGraphHeight = 28;
 
+// ---------- resize (usa padding real del panel) ----------
 function resizeCanvasReal() {
   const rect = panel.getBoundingClientRect();
   const style = getComputedStyle(panel);
@@ -19,34 +21,51 @@ function resizeCanvasReal() {
   const paddingTop = parseFloat(style.paddingTop) || 0;
   const paddingBottom = parseFloat(style.paddingBottom) || 0;
 
+  // dimensiones interiores visibles (CSS pixels)
   const cssW = Math.max(120, Math.round(rect.width - paddingLeft - paddingRight));
   const cssH = Math.max(40, Math.round(rect.height - paddingTop - paddingBottom));
 
   const dpr = window.devicePixelRatio || 1;
+
+  // estilo CSS para que el canvas ocupe exactamente el interior del panel
   canvas.style.width = cssW + "px";
   canvas.style.height = cssH + "px";
+
+  // tamaño real en pixels del canvas
   canvas.width = Math.round(cssW * dpr);
   canvas.height = Math.round(cssH * dpr);
+
+  // escalar el contexto para dibujar en coordenadas CSS (más cómodo)
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  return { cssW, cssH, dpr };
+  // devolver valores útiles
+  return { cssW, cssH, dpr, paddingLeft, paddingRight, paddingTop, paddingBottom, rect };
 }
 
+// inicial y onresize
 let dims = resizeCanvasReal();
 window.addEventListener("resize", () => { dims = resizeCanvasReal(); });
 
+// ---------- websocket ----------
 let ws = null;
 let wsConnected = false;
 let lastMsgTime = 0;
+let shownSinceOpen = false; // para mostrar solo en el primer mensaje válido
+let unchangedCount = 0;     // cuenta mensajes con mismo ts
+const UNCHANGED_THRESHOLD = 4; // tras 4 mensajes idénticos consideramos inactividad
+const INACTIVITY_MS = 3000; // si no llega ningún mensaje en este tiempo, reiniciamos
 
-let shownSinceOpen = false;
-let unchangedCount = 0;
+function hideOverlaySafe() {
+  try { window.api.overlayHide(); } catch (e) { /* noop */ }
+}
+function showOverlaySafe() {
+  try { window.api.overlayShow(); } catch (e) { /* noop */ }
+}
 
-const UNCHANGED_THRESHOLD = 4;
-const INACTIVITY_MS = 3000;
-
-function hideOverlaySafe() { try { window.api.overlayHide(); } catch {} }
-function showOverlaySafe() { try { window.api.overlayShow(); } catch {} }
+// Notificar al main que iRacing NO está enviando datos
+function setIracingRunning(state) {
+  try { window.api.setIracingState(!!state); } catch (e) { /* noop */ }
+}
 
 function clearSamples() {
   samples.length = 0;
@@ -54,17 +73,18 @@ function clearSamples() {
   unchangedCount = 0;
 }
 
+// Ocultar por defecto al arrancar
 hideOverlaySafe();
-window.api.iracingRunning(false);
+setIracingRunning(false); // estado inicial: iRacing no está corriendo
 
 function checkInactivity() {
   const now = Date.now();
+  // si no ha llegado mensaje en INACTIVITY_MS y hay un socket abierto, reiniciamos
   if (ws && wsConnected) {
     if (lastMsgTime && (now - lastMsgTime) > INACTIVITY_MS) {
-
-      window.api.iracingRunning(false);
-
-      try { ws.close(); } catch {}
+      console.log("[overlay] inactivity timeout - closing socket");
+      try { ws.close(); } catch(e){}
+      // onclose hará limpieza y notificará al main
     }
   }
 }
@@ -73,12 +93,13 @@ setInterval(checkInactivity, 1000);
 function connectWS() {
   if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
 
+  // limpiar socket viejo
   try {
     if (ws) {
       ws.onopen = ws.onclose = ws.onerror = ws.onmessage = null;
       ws = null;
     }
-  } catch {}
+  } catch (e) {}
 
   shownSinceOpen = false;
   lastMsgTime = 0;
@@ -89,61 +110,79 @@ function connectWS() {
   ws.onopen = () => {
     wsConnected = true;
     lastMsgTime = 0;
+    console.log("[renderer] ws.onopen");
   };
 
   ws.onmessage = (msg) => {
     lastMsgTime = Date.now();
+    console.log("[renderer] ws.onmessage raw:", msg.data && msg.data.slice ? msg.data.slice(0,200) : msg.data);
     try {
       const data = JSON.parse(msg.data);
+      console.log("[renderer] parsed ts:", data.ts);
 
-      if (!data || !data.ts) return;
-
-      // PRIMER SAMPLE REAL → IRACING ESTÁ CORRIENDO
-      if (!shownSinceOpen && data.ts !== lastTs) {
-        shownSinceOpen = true;
-        clearSamples();
-        showOverlaySafe();
-        window.api.iracingRunning(true);
-      }
-
-      if (data.ts === lastTs) {
-        unchangedCount++;
-      } else {
-        unchangedCount = 0;
-      }
-
-      if (unchangedCount >= UNCHANGED_THRESHOLD) {
-        hideOverlaySafe();
-        window.api.iracingRunning(false);
-        clearSamples();
-        try { ws.close(); } catch {}
+      // Si el payload no tiene ts válido, lo ignoramos (no mostramos)
+      if (!data || !data.ts) {
+        console.log("[renderer] received message without ts, ignoring");
         return;
       }
 
+      // Si el timestamp coincide con el último, consideramos que no hay nueva telemetría
+      if (data.ts === lastTs) {
+        unchangedCount++;
+      } else {
+        unchangedCount = 0; // nuevo dato real
+      }
+
+      // Si no hemos mostrado desde la apertura y este es un dato NUEVO, mostramos
+      if (!shownSinceOpen && data.ts !== lastTs) {
+        shownSinceOpen = true;
+        clearSamples(); // arrancamos buffer limpio
+        showOverlaySafe();
+        // Notificamos al main que iRacing está corriendo AHORA
+        setIracingRunning(true);
+        console.log("[renderer] first new sample received - showing overlay and set iracing=true");
+      }
+
+      // Si recibimos demasiados mensajes sin cambios, consideramos inactividad
+      if (unchangedCount >= UNCHANGED_THRESHOLD) {
+        console.log("[renderer] unchangedCount threshold reached - treating as inactive");
+        // ocultar/limpiar y forzar reconexión
+        hideOverlaySafe();
+        setIracingRunning(false); // iRacing dejó de mandar datos
+        clearSamples();
+        try { ws.close(); } catch(e){}
+        return;
+      }
+
+      // Sólo empujar sample si ts es nuevo
       if (data.ts !== lastTs) {
         pushSample(data);
       }
-
-    } catch (e) {}
+    } catch (e) {
+      console.error("[renderer] Error parseando WS:", e);
+    }
   };
 
   ws.onclose = () => {
     wsConnected = false;
+    console.log("[renderer] ws.onclose - hiding and clearing");
     hideOverlaySafe();
-    window.api.iracingRunning(false);
-
+    setIracingRunning(false); // desconectado -> iRacing no está enviando
     clearSamples();
 
-    try { ws.onopen = ws.onclose = ws.onerror = ws.onmessage = null; } catch {}
+    try { ws.onopen = ws.onclose = ws.onerror = ws.onmessage = null; } catch (e) {}
     ws = null;
-    setTimeout(connectWS, 1500);
+    setTimeout(connectWS, 1500); // reintento rápido
   };
 
-  ws.onerror = () => {};
+  ws.onerror = (e) => {
+    console.log("[overlay] ws.onerror", e && e.message ? e.message : e);
+  };
 }
 
 connectWS();
 
+// ---------- push sample ----------
 function pushSample(s) {
   if (!s.ts || s.ts === lastTs) return;
   lastTs = s.ts;
@@ -151,6 +190,7 @@ function pushSample(s) {
   if (samples.length > maxSamples) samples.shift();
 }
 
+// ---------- draw ----------
 function draw() {
   dims = resizeCanvasReal();
   const cssW = dims.cssW;
@@ -162,6 +202,7 @@ function draw() {
 
   ctx.clearRect(0, 0, cssW, cssH);
 
+  // baseline
   ctx.beginPath();
   ctx.strokeStyle = "rgba(255,255,255,0.06)";
   ctx.lineWidth = 1;
@@ -199,5 +240,18 @@ function drawLine(field, color, cssW, baselineY, usableH) {
   }
   ctx.stroke();
 }
+
+// debug helper
+window._debugCanvas = () => {
+  console.log(
+    "DEBUG canvas:",
+    canvas.getBoundingClientRect(),
+    "canvas.width/height:",
+    canvas.width,
+    canvas.height,
+    "dpr:",
+    window.devicePixelRatio
+  );
+};
 
 draw();
