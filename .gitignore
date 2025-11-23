@@ -25,3 +25,5 @@ __pycache__/
 # Carpetas de electron-builder
 app/node_modules/
 python/
+
+package-lock.json
