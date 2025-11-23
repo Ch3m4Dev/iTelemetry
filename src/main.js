@@ -160,7 +160,7 @@ function createWindow() {
   ipcMain.on("overlay-hide", () => win.hide());
 
   // IPC: estado de iRacing (viene del renderer)
-  ipcMain.on("iracing-state", (ev, running) => {
+  ipcMain.on("iracing-state", (_, running) => {
     isRunningIRacing = !!running;
     if (isRunningIRacing) {
       // Al arrancar iRacing, desactivamos la intervención manual
