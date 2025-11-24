@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ajustes del Overlay</title>
+  <!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ajustes del Overlay</title>
+  <style>
+    body {
+        font-family: Arial;
+        margin: 0;
+        background: #fafafa;
+        overflow: hidden;      /* ← Elimina scroll */
+    }
+
+    h2 {
+        margin: 10px 0 15px 0; /* ← Reduce margen superior */
+        font-size: 20px;
+        text-align: center;
+    }
+
+    .container {
+        width: 300px;          /* ← Tamaño más compacto */
+        margin: 0 auto;
+        padding: 10px 0 0 0;   /* ← Quita relleno extra */
+    }
+
+    .row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 6px 0;        /* ← Filas más bajas */
+    }
+
+    label {
+        flex: 1;
+        font-size: 14px;
+    }
+
+    input {
+        width: 120px;
+        padding: 4px;         /* ← Más compacto */
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    .buttons {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 10px;      /* ← antes 20px */
+    }
+
+    button {
+        padding: 6px 10px;     /* ← Más compacto */
+        border: none;
+        border-radius: 4px;
+        background: #0078d4;
+        color: white;
+        font-size: 13px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background: #005fa3;
+    }
+
+    #status, #errorMsg {
+        margin-top: 10px;
+        text-align: center;
+        font-size: 13px;
+        display: none;
+    }
+    </style>
+
+</head>
+
+<body>
+  <div class="container">
+    <h2>Ajustes del Overlay</h2>
+
+    <div class="row">
+      <label>X:</label>
+      <input id="posX" type="number">
+    </div>
+
+    <div class="row">
+      <label>Y:</label>
+      <input id="posY" type="number">
+    </div>
+
+    <div class="row">
+      <label>Width:</label>
+      <input id="width" type="number">
+    </div>
+
+    <div class="row">
+      <label>Height:</label>
+      <input id="height" type="number">
+    </div>
+
+    <div class="buttons">
+      <button id="saveBtn">Guardar</button>
+      <button id="centerBtn">Centrar overlay</button>
+    </div>
+
+    <p id="status" style="color: green">Cambios guardados.</p>
+    <p id="errorMsg" style="color: red"></p>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>
+
+</head>
