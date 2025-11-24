@@ -27,3 +27,4 @@ app/node_modules/
 python/
 
 package-lock.json
+*.zip
