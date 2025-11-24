@@ -97,6 +97,18 @@ function createOverlayWindow() {
     newCfg.x = x;
     newCfg.y = y;
     saveConfig(newCfg);
+    
+    // enviar la nueva posicion a la interfaz de settings
+    const payload = {
+      x: Number(x),
+      y: Number(y)
+    };
+
+    BrowserWindow.getAllWindows().forEach(win => {
+      if (win.getTitle() === "Ajustes del Overlay") {
+        win.webContents.send("overlay-updated", JSON.stringify(payload));
+      }
+    });
   });
 
   win.on("resize", () => {
@@ -105,6 +117,19 @@ function createOverlayWindow() {
     cfg.width = w;
     cfg.height = h;
     saveConfig(cfg);
+
+    // update para settings
+    // JSON plano
+    const payload = {
+      width: Number(w),
+      height: Number(h)
+    };
+
+    BrowserWindow.getAllWindows().forEach(win => {
+      if (win.getTitle() === "Ajustes del Overlay") {
+        win.webContents.send("overlay-updated", JSON.stringify(payload));
+      }
+    });
   });
 
   // ------------ SHORTCUTS ------------
@@ -143,6 +168,18 @@ function createOverlayWindow() {
   return win;
 }
 
+function applyOverlayConfig(cfg) {
+  if (!win) return;
+
+  if (typeof cfg.x === "number" && typeof cfg.y === "number") {
+    win.setPosition(cfg.x, cfg.y);
+  }
+  if (typeof cfg.width === "number" && typeof cfg.height === "number") {
+    win.setSize(cfg.width, cfg.height);
+  }
+}
+
 module.exports = {
-  createOverlayWindow
+  createOverlayWindow,
+  applyOverlayConfig
 };
