@@ -19,7 +19,8 @@
   },
   "build": {
     "appId": "com.itelemetry.overlay",
-    "productName": "iTelemetry Overlay",
+    "productName": "iTelemetry-Overlay",
+    "artifactName": "${productName}-Setup-${version}.${ext}",
     "files": [
       "!node_modules/*",
       "!dist/*"
