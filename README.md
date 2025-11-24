@@ -1,6 +1,6 @@
 # iTelemetry Overlay
 
-Overlay ligero para iRacing que muestra gráficas en tiempo real de **Throttle**, **Brake** y **Clutch**. Diseñado para ser totalmente transparente, movable y compatible con grabadores de pantalla como OBS.
+Overlay ligero para iRacing que muestra gráficas en tiempo real de **Throttle**, **Brake** y **Clutch**. Diseñado para ser totalmente transparente, movible y compatible con grabadores de pantalla como OBS.
 
 ---
 
