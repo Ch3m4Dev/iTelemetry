@@ -2,7 +2,7 @@
   "name": "itelemetry",
   "version": "1.0.0",
   "description": "Overlay: throttle, brake, clutch last seconds graph",
-  "main": "src/main.js",
+  "main": "src/main/main.js",
 
   "scripts": {
     "start": "electron .",
