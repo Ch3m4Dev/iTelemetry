@@ -1,6 +1,6 @@
 const { ipcMain, screen } = require("electron");
-const { loadConfig, saveConfig } = require("./config");
-const { applyOverlayConfig } = require("./overlayWindow");
+const { loadConfig, saveConfig } = require("../config.js");
+const { applyOverlayConfig } = require("../windows/overlayInputs");
 
 function setupSettingsIPC() {
   ipcMain.on("get-screen-size", (event) => {

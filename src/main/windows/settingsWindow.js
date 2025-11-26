@@ -19,13 +19,13 @@ function createSettingsWindow() {
     alwaysOnTop: false,
     frame: true,
     webPreferences: {
-      preload: path.join(__dirname, "..", "renderer", "settings_preload.js"),
+      preload: path.join(__dirname, "..", "..", "renderer", "settings", "preload.js"),
       contextIsolation: true,
       nodeIntegration: false
     }
   });
 
-  settingsWin.loadFile(path.join(__dirname, "..", "renderer", "settings.html"));
+  settingsWin.loadFile(path.join(__dirname, "..", "..", "renderer", "settings", "settings.html"));
 
   settingsWin.on("closed", () => {
     settingsWin = null;

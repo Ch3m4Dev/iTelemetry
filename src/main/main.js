@@ -1,8 +1,8 @@
 const { app } = require("electron");
-const { createOverlayWindow } = require("./overlayWindow");
-const { createTray } = require("./tray");
-const { setupSettingsIPC } = require("./settingsIPC");
-const { setupAutoUpdate } = require("./update");
+const { createOverlayWindow } = require("./windows/overlayInputs");
+const { createTray } = require("./tray/tray");
+const { setupSettingsIPC } = require("./ipc/settingsIPC");
+const { setupAutoUpdate } = require("./update/update");
 
 app.whenReady().then(() => {
   createOverlayWindow();
