@@ -210,6 +210,19 @@ function draw() {
   ctx.lineTo(cssW - 0.5, baselineY + 0.5);
   ctx.stroke();
 
+  // reference lines at 25%, 50%, 75%
+  const levels = [0.25, 0.5, 0.75];
+  ctx.strokeStyle = "rgba(255,255,255,0.07)";
+  ctx.lineWidth = 1;
+
+  levels.forEach(lvl => {
+    const y = baselineY - lvl * usableH + 0.5;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(cssW, y);
+    ctx.stroke();
+  });
+
   if (samples.length > 1) {
     drawLine("throttle", "#00ff00", cssW, baselineY, usableH);
     drawLine("brake", "#ff0000", cssW, baselineY, usableH);
