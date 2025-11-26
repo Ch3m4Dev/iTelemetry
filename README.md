@@ -1,6 +1,6 @@
 # iTelemetry Overlay
 
-Overlay ligero para iRacing que muestra gráficas en tiempo real de **Throttle**, **Brake** y **Clutch**. Diseñado para ser totalmente transparente, movable y compatible con grabadores de pantalla como OBS.
+Overlay ligero para iRacing que muestra gráficas en tiempo real de **Throttle**, **Brake** y **Clutch**. Diseñado para ser totalmente transparente, movible y compatible con grabadores de pantalla como OBS.
 
 ---
 
@@ -18,6 +18,7 @@ Overlay ligero para iRacing que muestra gráficas en tiempo real de **Throttle**
 ## ⌨️ Shortcuts disponibles
 
 ### **CTRL + SHIFT + O** — Modo interactivo
+Esta funcionalidad NO funciona en Windows 10, para redimensionar y ajustar posicion podran hacerlo desde el icono en la bandeja del sistema, haciendo click derecho en el icono del programa y clicando en "Overlay Settings".
 Alterna entre:
 
 - **Modo Overlay** (clic-through, no interactivo, no mueve ni redimensiona)
@@ -52,14 +53,13 @@ Click derecho → **Cerrar Overlay**
 
 ## 🔄 Actualización
 
-No hace falta desinstalar nada.  
-Descarga el nuevo `setup.exe`, ejecútalo y actualizará la versión anterior.
+Cada vez que el programa se abre, se ejecuta un AutoUpdate para actualizarse automaticamente a la ultima version estable (Disponible a partir de la version 1.0.2, cualquier version anterior no contiene esta funcionalidad)
 
 ---
 
 ## 🧪 Compatibilidad
 
-- Windows 10 — ✔️
+- Windows 10 — ✔️ (Ver sección de Shortcuts en detalle para entender funcionamiento)
 - Windows 11 — ✔️
 
 OBS / Streamlabs → Funciona con *Display Capture*.  
