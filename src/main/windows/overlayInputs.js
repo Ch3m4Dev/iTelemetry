@@ -1,9 +1,7 @@
-// src/overlayWindow.js
-
 const { BrowserWindow, globalShortcut, screen, ipcMain, app } = require("electron");
 const path = require("path");
-const { spawn } = require("child_process");
-const { loadConfig, saveConfig } = require("./config");
+const { loadConfig, saveConfig } = require("../config.js");
+const { startBridge } = require("../python/bridgeRunner");
 
 let win = null;
 let ignoreMouse = true;
@@ -22,37 +20,9 @@ function getDefaultPosition(width, height) {
   };
 }
 
-// PATHS DEL PYTHON
-function getPythonPaths() {
-  if (isDev) {
-    return {
-      pythonPath: path.join(__dirname, "..", "..", "python", "python.exe"),
-      irbridgePath: path.join(__dirname, "..", "..", "irbridge.py"),
-      pythonCwd: path.join(__dirname, "..", "..")
-    };
-  }
-
-  return {
-    pythonPath: path.join(process.resourcesPath, "python", "python.exe"),
-    irbridgePath: path.join(process.resourcesPath, "irbridge.py"),
-    pythonCwd: process.resourcesPath
-  };
-}
-
 
 function createOverlayWindow() {
-  // ---- LANZAR IRBRIDGE ----
-  const { pythonPath, irbridgePath, pythonCwd } = getPythonPaths();
-
-  console.log("PYTHON =", pythonPath);
-  console.log("IRBRIDGE =", irbridgePath);
-  console.log("CWD =", pythonCwd);
-
-  pyProc = spawn(pythonPath, [irbridgePath], {
-    cwd: pythonCwd,
-    stdio: "ignore"
-  });
-
+  startBridge();
   // ---- CONFIG DEL OVERLAY ----
   let cfg = loadConfig();
 
@@ -76,7 +46,7 @@ function createOverlayWindow() {
     alwaysOnTop: true,
     skipTaskbar: true,
     webPreferences: {
-      preload: path.join(__dirname, "..", "renderer", "preload.js"),
+      preload: path.join(__dirname, "..", "..", "renderer", "overlays", "inputs", "preload.js"),
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -88,7 +58,7 @@ function createOverlayWindow() {
     win.webContents.openDevTools({ mode: "detach" });
   }
 
-  win.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
+  win.loadFile(path.join(__dirname, "..", "..", "renderer", "overlays", "inputs", "index.html"));
 
   // ---- GUARDAR POSICIÓN ----
   win.on("move", () => {

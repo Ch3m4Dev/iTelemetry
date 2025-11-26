@@ -1,11 +1,11 @@
 const { Tray, Menu, app } = require("electron");
 const path = require("path");
-const { createSettingsWindow } = require("./settingsWindow");
+const { createSettingsWindow } = require("../windows/settingsWindow");
 
 let tray = null;
 
 function createTray() {
-  const iconPath = path.join(__dirname, "..", "assets", "tray_icon.ico");
+  const iconPath = path.join(__dirname, "..", "..", "assets", "tray_icon.ico");
 
   try {
     tray = new Tray(iconPath);
