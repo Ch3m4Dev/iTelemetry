@@ -1,5 +1,3 @@
-// src/main/settingsWindow.js
-
 const { BrowserWindow } = require("electron");
 const path = require("path");
 
