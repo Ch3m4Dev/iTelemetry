@@ -11,6 +11,12 @@ let isRunningIRacing = false;
 
 const isDev = !app.isPackaged;
 
+function inputsOverlayEnabled() {
+  const cfg = loadConfig();
+  return cfg?.overlays?.inputs?.enabled !== false; // true por defecto
+}
+
+
 // POSICIÓN POR DEFECTO
 function getDefaultPosition(width, height) {
   const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
@@ -22,6 +28,9 @@ function getDefaultPosition(width, height) {
 
 
 function createOverlayWindow() {
+  if(!inputsOverlayEnabled()){
+    return null;
+  }
   startBridge();
   // ---- CONFIG DEL OVERLAY ----
   let cfg = loadConfig();
@@ -119,13 +128,19 @@ function createOverlayWindow() {
   globalShortcut.register("Control+Shift+S", () => {
     if (!isRunningIRacing) {
       manualShow = !manualShow;
-      if (manualShow) win.show();
+      if (manualShow && inputsOverlayEnabled()) win.show();
       else win.hide();
     }
   });
 
+
   // ---------- IPC ----------
-  ipcMain.on("overlay-show", () => win.show());
+  ipcMain.on("overlay-show", () => {
+    if (inputsOverlayEnabled() && win) {
+      win.show();
+    }
+  });
+
   ipcMain.on("overlay-hide", () => win.hide());
 
   ipcMain.on("iracing-state", (_, running) => {

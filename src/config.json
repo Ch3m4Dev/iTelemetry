@@ -11,5 +11,11 @@
   "x": 1573,
   "y": 974,
   "width": 317,
-  "height": 96
+  "height": 96,
+  "overlays": {
+    "inputs": {
+      "enabled": false,
+      "config": {}
+    }
+  }
 }

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Overlay Manager</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+  <div id="container">
+
+    <!-- CABECERA -->
+    <header id="header">
+      <h2 id="current-overlay">Inputs</h2>
+
+      <!-- Interruptor moderno -->
+      <label class="switch" title="Activar / Desactivar overlay">
+        <input type="checkbox" id="toggle-overlay" />
+        <span class="slider"></span>
+      </label>
+    </header>
+
+    <!-- LAYOUT PRINCIPAL -->
+    <div id="main">
+
+      <!-- SIDEBAR IZQUIERDA -->
+      <aside id="sidebar">
+        <ul>
+          <li class="overlay-item selected" data-overlay="inputs">Inputs</li>
+          <!-- En el futuro: otros overlays -->
+        </ul>
+      </aside>
+
+      <!-- CONTENIDO CENTRAL -->
+      <section id="content">
+        <div id="content-inner">
+          <h3>Configuración de Inputs</h3>
+          <p>Aquí irán las opciones del overlay seleccionado.</p>
+        </div>
+      </section>
+
+    </div>
+
+  </div>
+
+  <!-- CARGA DEL RENDERER (IMPORTANTE) -->
+  <script src="renderer.js"></script>
+
+</body>
+</html>
