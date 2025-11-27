@@ -1,6 +1,5 @@
 const { Tray, Menu, app } = require("electron");
 const path = require("path");
-const { createSettingsWindow } = require("../windows/settingsWindow");
 
 let tray = null;
 
@@ -15,12 +14,6 @@ function createTray() {
   }
 
   const contextMenu = Menu.buildFromTemplate([
-    {
-      label: "Overlay Settings",
-      click: () => {
-        createSettingsWindow();
-      } 
-    },
     {
       label: "Cerrar Overlay",
       click: () => app.quit()

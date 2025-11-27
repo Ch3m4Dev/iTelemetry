@@ -267,4 +267,22 @@ window._debugCanvas = () => {
   );
 };
 
+// -------------------- CONFIG DESDE MANAGER --------------------
+
+function applyOverlayConfig(cfg) {
+  // opacidad (0–100)
+  if (cfg.opacity !== undefined) {
+    const value = Number(cfg.opacity);
+    document.body.style.opacity = value / 100;
+  }
+}
+
+// Escucha IPC del Manager
+if (window.overlayAPI) {
+  window.overlayAPI.onConfigUpdate((cfg) => {
+    applyOverlayConfig(cfg);
+  });
+}
+
+
 draw();

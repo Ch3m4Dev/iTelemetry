@@ -6,6 +6,7 @@ const { setupAutoUpdate } = require("./update/update");
 const OverlayManager = require('./windows/overlayManager');
 const path = require('path');
 const fs = require('fs');
+const { BrowserWindow } = require("electron");
 
 let overlayManager;
 
@@ -101,5 +102,68 @@ ipcMain.on('manager:selectOverlay', (event, overlayName) => {
   const overlayCfg = (cfg.overlays && cfg.overlays[overlayName] && cfg.overlays[overlayName].config) || {};
   event.sender.send('manager:overlayConfig', overlayName, overlayCfg);
 });
+
+// Update de la config en el panel de configuracion
+ipcMain.on("manager:updateOverlayConfig", (event, overlayName, newConfig) => {
+  const cfg = readConfig();
+  if (!cfg.overlays) cfg.overlays = {};
+  if (!cfg.overlays[overlayName]) cfg.overlays[overlayName] = { enabled: true, config: {} };
+
+  cfg.overlays[overlayName].config = {
+    ...cfg.overlays[overlayName].config,
+    ...newConfig
+  };
+
+  writeConfig(cfg);
+  // real time update
+  BrowserWindow.getAllWindows().forEach(win => {
+    const url = win.webContents.getURL();
+    const normalized = url.replace(/\\/g, "/").toLowerCase();
+  if (normalized.includes("renderer/overlays/inputs")) {
+      win.webContents.send("overlay:config-update", newConfig);
+    }
+  });
+});
+
+ipcMain.on("manager:centerOverlay", (event, overlayName) => {
+  if (overlayName !== "inputs") return;
+
+  const { BrowserWindow, screen } = require("electron");
+  const cfg = readConfig();
+
+  // Obtener dimensiones del overlay
+  const w = cfg.overlays.inputs.config.width ?? 920;
+  const h = cfg.overlays.inputs.config.height ?? 260;
+
+  // Obtener centro de la pantalla
+  const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
+
+  const x = Math.round((sw - w) / 2);
+  const y = Math.round((sh * 0.7) - (h / 2));
+
+  // Guardar en config
+  cfg.overlays.inputs.config.x = x;
+  cfg.overlays.inputs.config.y = y;
+
+  writeConfig(cfg);
+
+  // Mover la ventana si está abierta
+  BrowserWindow.getAllWindows().forEach(win => {
+    const url = win.webContents.getURL();
+    const normalized = url.replace(/\\/g, "/").toLowerCase();
+  if (normalized.includes("renderer/overlays/inputs")) {
+      win.setPosition(x, y);
+    }
+  });
+
+  // Actualizar Manager en vivo
+  BrowserWindow.getAllWindows().forEach(win => {
+    if (win.getTitle() === "Overlay Manager") {
+      win.webContents.send("manager:update-overlay-fields", { x, y });
+    }
+  });
+});
+
+
 
 app.on("window-all-closed", () => app.quit());

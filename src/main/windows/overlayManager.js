@@ -21,7 +21,7 @@ class OverlayManager {
         contextIsolation: true,
       }
     });
-
+    this.window.setMenuBarVisibility(false);
     this.window.loadFile(
       path.join(__dirname, '..', '..', 'renderer', 'manager', 'index.html')
     );

@@ -14,7 +14,6 @@ body {
   flex-direction: column;
 }
 
-
 /* ==== HEADER ==== */
 
 #header {
@@ -27,6 +26,8 @@ body {
   justify-content: space-between;
 
   padding: 0 20px;
+
+  z-index: 10;
 }
 
 #header h2 {
@@ -35,7 +36,7 @@ body {
   font-size: 20px;
 }
 
-/* Botón ON/OFF moderno */
+/* Switch */
 #toggle-overlay {
   background: #2e2e2e;
   border: 1px solid #3c3c3c;
@@ -54,14 +55,12 @@ body {
   background: #454545;
 }
 
-
 /* ==== MAIN AREA ==== */
 
 #main {
   display: flex;
   height: calc(100vh - 60px);
 }
-
 
 /* ==== SIDEBAR ==== */
 
@@ -100,17 +99,18 @@ body {
   color: #fff;
 }
 
-
 /* ==== CONTENT ==== */
 
 #content {
   flex-grow: 1;
   padding: 30px;
   overflow-y: auto;
+  position: relative;
+  z-index: 1;
 }
 
 #content-inner {
-  max-width: 900px;
+  max-width: 600px;
 }
 
 #content-inner h3 {
@@ -118,6 +118,42 @@ body {
   font-size: 22px;
   font-weight: 600;
 }
+
+/* ==== SETTINGS STYLE ==== */
+
+.setting-group {
+  margin-bottom: 20px;
+}
+
+.setting-group label {
+  display: block;
+  font-size: 15px;
+  color: #bbb;
+  margin-bottom: 6px;
+}
+
+.setting-group input[type="number"] {
+  width: 150px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: #202020;
+  color: #eee;
+  font-size: 15px;
+}
+
+.setting-group input[type="number"]:focus {
+  outline: none;
+  border-color: #4a90e2;
+}
+
+/* Slider */
+
+.setting-group input[type="range"] {
+  width: 300px;
+  cursor: pointer;
+}
+
 /* ==== SWITCH MODERNO ==== */
 
 .switch {
@@ -128,9 +164,11 @@ body {
 }
 
 .switch input {
+  position: absolute;
   opacity: 0;
   width: 0;
   height: 0;
+  pointer-events: none;
 }
 
 .slider {
@@ -167,4 +205,24 @@ input:checked + .slider {
 
 input:checked + .slider:before {
   transform: translateX(24px);
+}
+
+.action-btn {
+  background: #3a3a3a;
+  border: 1px solid #555;
+  color: #eee;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-bottom: 20px;
+  transition: 0.15s ease;
+}
+
+.action-btn:hover {
+  background: #4a4a4a;
+}
+
+.action-btn:active {
+  background: #555;
 }
