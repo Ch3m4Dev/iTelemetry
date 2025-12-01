@@ -1,5 +1,7 @@
-const { BrowserWindow } = require('electron');
+const { BrowserWindow, Notification, app } = require('electron');
 const path = require('path');
+
+let isQuitting = false;
 
 class OverlayManager {
   constructor() {
@@ -22,6 +24,22 @@ class OverlayManager {
       }
     });
     this.window.setMenuBarVisibility(false);
+    this.window.on("close", (event) => {
+      if (!isQuitting) {
+        // NO estamos cerrando la app, solo la ventana → ocultar
+        event.preventDefault();
+        this.window.hide();
+
+        if (Notification.isSupported()) {
+          new Notification({
+            title: "iTelemetry",
+            body: "La aplicación sigue ejecutándose en segundo plano.",
+          }).show();
+        }
+      }
+    });
+
+
     this.window.loadFile(
       path.join(__dirname, '..', '..', 'renderer', 'manager', 'index.html')
     );
@@ -38,9 +56,12 @@ class OverlayManager {
   }
 
   show() {
-    if (!this.window) return;
+    if (!this.window) {
+      this.create();
+    }
     this.window.show();
   }
+
 
   hide() {
     if (!this.window) return;
@@ -53,4 +74,9 @@ class OverlayManager {
   }
 }
 
-module.exports = OverlayManager;
+// marcar cuando la app se está cerrando de verdad
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
+module.exports = new OverlayManager();

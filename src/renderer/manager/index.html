@@ -2,51 +2,65 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Overlay Manager</title>
+  <title>iTelemetry Manager</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
 </head>
 
 <body>
 
-  <div id="container">
+  <div id="app-wrapper">
 
-    <!-- CABECERA -->
-    <header id="header">
-      <h2 id="current-overlay">Inputs</h2>
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <div class="sidebar-header">iTelemetry</div>
+      <ul class="sidebar-list">
+        <li class="sidebar-item selected" data-overlay="inputs">Inputs</li>
+        <!-- futuros overlays -->
+      </ul>
+    </aside>
 
-      <!-- Interruptor moderno -->
-      <label class="switch">
-        <input type="checkbox" id="toggle-overlay">
-        <span class="slider"></span>
-      </label>
+    <!-- Content -->
+    <main id="content">
+      <div id="content-header">
+        <h2 id="current-overlay">Configuración</h2>
+      </div>
 
-    </header>
+      <div id="content-body">
 
-    <!-- LAYOUT PRINCIPAL -->
-    <div id="main">
+        <button id="center-overlay" class="btn-primary">Centrar overlay</button>
 
-      <!-- SIDEBAR IZQUIERDA -->
-      <aside id="sidebar">
-        <ul>
-          <li class="overlay-item selected" data-overlay="inputs">Inputs</li>
-          <!-- En el futuro: otros overlays -->
-        </ul>
-      </aside>
-
-      <!-- CONTENIDO CENTRAL -->
-      <section id="content">
-        <div id="content-inner">
-          <h3>Configuración de Inputs</h3>
-          <p>Aquí irán las opciones del overlay seleccionado.</p>
+        <div class="setting-group">
+          <label>X</label>
+          <input type="number" id="input-x">
         </div>
-      </section>
 
-    </div>
+        <div class="setting-group">
+          <label>Y</label>
+          <input type="number" id="input-y">
+        </div>
+
+        <div class="setting-group">
+          <label>Anchura</label>
+          <input type="number" id="input-width">
+        </div>
+
+        <div class="setting-group">
+          <label>Altura</label>
+          <input type="number" id="input-height">
+        </div>
+
+        <div class="setting-group">
+          <label>Opacidad</label>
+          <input type="range" id="input-opacity" min="20" max="100">
+        </div>
+
+      </div>
+    </main>
 
   </div>
 
-  <!-- CARGA DEL RENDERER (IMPORTANTE) -->
   <script src="renderer.js"></script>
-
 </body>
 </html>

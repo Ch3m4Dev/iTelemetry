@@ -1,169 +1,117 @@
-const { app, ipcMain } = require("electron");
+const { app, ipcMain, BrowserWindow, globalShortcut } = require("electron");
 const { createOverlayWindow } = require("./windows/overlayInputs");
 const { createTray } = require("./tray/tray");
-const { setupSettingsIPC } = require("./ipc/settingsIPC");
 const { setupAutoUpdate } = require("./update/update");
-const OverlayManager = require('./windows/overlayManager');
+const overlayManager = require('./windows/overlayManager');
+const { getActiveOverlays } = require("./utils/overlayUtils");
+const { setupOverlaysIPC } = require("./ipc/overlaysIPC");
+
 const path = require('path');
 const fs = require('fs');
-const { BrowserWindow } = require("electron");
 
-let overlayManager;
+app.setName("iTelemetry");
+app.setAppUserModelId("iTelemetry");
 
-// Ruta al config dentro de src
-const CONFIG_PATH = path.join(__dirname, '..', 'config.json');
+let ignoreMouse = true;
+let manualShow = false;
+let isRunningIRacing = false;
 
-function readConfig() {
-  try {
-    if (!fs.existsSync(CONFIG_PATH)) return {};
-    const raw = fs.readFileSync(CONFIG_PATH, 'utf8') || '{}';
-    return JSON.parse(raw);
-  } catch (err) {
-    console.error('Error leyendo config.json:', err);
-    return {};
-  }
-}
-
-function writeConfig(cfg) {
-  try {
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf8');
-  } catch (err) {
-    console.error('Error escribiendo config.json:', err);
-  }
-}
+// ------------------------------------------------------------
+// ------------------------ APP/READY --------------------------
+// ------------------------------------------------------------
 
 app.whenReady().then(() => {
+  setupOverlaysIPC({ 
+    ignoreMouse, 
+    manualShow, 
+    isRunningIRacing 
+  });
+
+  // Crear overlays, tray, IPC y ventana del manager
   createOverlayWindow();
   createTray();
-  setupSettingsIPC();
-  overlayManager = new OverlayManager();
-  overlayManager.create();
+
+  const manager = overlayManager;
+  manager.create();
 
   if (app.isPackaged) {
     setupAutoUpdate();
   }
-});
 
-/* IPC handlers para el Manager */
+  // ------------------------------------------------------------
+  // -------------------- SHORTCUTS GLOBALES --------------------
+  // ------------------------------------------------------------
 
-// Devuelve { enabled: boolean, config: object }
-ipcMain.handle('manager:getOverlayState', (event, overlayName) => {
-  const cfg = readConfig();
-  const overlays = cfg.overlays || {};
-  const overlay = overlays[overlayName] || {};
-  return {
-    enabled: !!overlay.enabled,
-    config: overlay.config || {}
-  };
-});
+  // CTRL + SHIFT + O → toggle ignore mouse en TODOS los overlays activos
+  globalShortcut.register("Control+Shift+O", () => {
+    ignoreMouse = !ignoreMouse;
+    const overlays = getActiveOverlays();
+    overlays.forEach(win => {
+      win.setIgnoreMouseEvents(ignoreMouse);
+      win.webContents.send("ignore-changed", ignoreMouse);
+    });
+  });
 
-// Actualiza enabled en config.json
-ipcMain.on('manager:toggleOverlay', (event, overlayName, state) => {
-  if (!overlayName) return;
+  // CTRL + SHIFT + Q → cerrar app
+  globalShortcut.register("Control+Shift+Q", () => {
+    app.quit();
+  });
 
-  const cfg = readConfig();
-  if (!cfg.overlays) cfg.overlays = {};
-  if (!cfg.overlays[overlayName]) cfg.overlays[overlayName] = { enabled: false, config: {} };
+  // CTRL + SHIFT + S → mostrar/ocultar overlays activos (si iRacing no está corriendo)
+  globalShortcut.register("Control+Shift+S", () => {
+    if (isRunningIRacing) return;
 
-  cfg.overlays[overlayName].enabled = !!state;
-  writeConfig(cfg);
+    manualShow = !manualShow;
+    const overlays = getActiveOverlays();
 
-  // === Nueva lógica dinámica ===
-  if (overlayName === "inputs") {
-    const { createOverlayWindow } = require("./windows/overlayInputs");
-    const { BrowserWindow } = require("electron");
+    overlays.forEach(win => {
+      if (!win || win.isDestroyed()) return;
 
-    // Si está apagado → cerrar
-    if (!state) {
-      BrowserWindow.getAllWindows().forEach(win => {
-        if (win && win.webContents.getURL().includes("renderer/overlays/inputs")) {
-          win.close();
+      if (manualShow) {
+        // si está minimizada, restaurar
+        try {
+          if (win.isMinimized && win.isMinimized()) win.restore();
+        } catch (e) {}
+
+        // Si el webContents aún carga, escuchar ready-to-show para asegurar que se muestre
+        try {
+          const wc = win.webContents;
+          if (wc && wc.isLoading && wc.isLoading()) {
+            // show cuando esté lista
+            win.once('ready-to-show', () => {
+              if (!win.isDestroyed()) {
+                try { win.show(); } catch (e) {}
+              }
+            });
+          } else {
+            // intento inmediato
+            try { win.show(); } catch (e) {}
+          }
+
+          // Fallback corto: si por cualquier razón sigue invisible, forzamos show tras 120ms
+          setTimeout(() => {
+            if (!win.isDestroyed() && !win.isVisible()) {
+              try { win.show(); } catch (e) {}
+            }
+          }, 120);
+        } catch (e) {
+          // noop
         }
-      });
-    }
-
-    // Si está encendido → crear si no existe
-    if (state) {
-      let exists = BrowserWindow.getAllWindows().some(win =>
-        win && win.webContents.getURL().includes("renderer/overlays/inputs")
-      );
-
-      if (!exists) {
-        createOverlayWindow();
+      } else {
+        try { win.hide(); } catch (e) {}
       }
-    }
-  }
-});
-
-
-// Cuando el manager selecciona un overlay, devolvemos su configuración (si existe)
-ipcMain.on('manager:selectOverlay', (event, overlayName) => {
-  const cfg = readConfig();
-  const overlayCfg = (cfg.overlays && cfg.overlays[overlayName] && cfg.overlays[overlayName].config) || {};
-  event.sender.send('manager:overlayConfig', overlayName, overlayCfg);
-});
-
-// Update de la config en el panel de configuracion
-ipcMain.on("manager:updateOverlayConfig", (event, overlayName, newConfig) => {
-  const cfg = readConfig();
-  if (!cfg.overlays) cfg.overlays = {};
-  if (!cfg.overlays[overlayName]) cfg.overlays[overlayName] = { enabled: true, config: {} };
-
-  cfg.overlays[overlayName].config = {
-    ...cfg.overlays[overlayName].config,
-    ...newConfig
-  };
-
-  writeConfig(cfg);
-  // real time update
-  BrowserWindow.getAllWindows().forEach(win => {
-    const url = win.webContents.getURL();
-    const normalized = url.replace(/\\/g, "/").toLowerCase();
-  if (normalized.includes("renderer/overlays/inputs")) {
-      win.webContents.send("overlay:config-update", newConfig);
-    }
-  });
-});
-
-ipcMain.on("manager:centerOverlay", (event, overlayName) => {
-  if (overlayName !== "inputs") return;
-
-  const { BrowserWindow, screen } = require("electron");
-  const cfg = readConfig();
-
-  // Obtener dimensiones del overlay
-  const w = cfg.overlays.inputs.config.width ?? 920;
-  const h = cfg.overlays.inputs.config.height ?? 260;
-
-  // Obtener centro de la pantalla
-  const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
-
-  const x = Math.round((sw - w) / 2);
-  const y = Math.round((sh * 0.7) - (h / 2));
-
-  // Guardar en config
-  cfg.overlays.inputs.config.x = x;
-  cfg.overlays.inputs.config.y = y;
-
-  writeConfig(cfg);
-
-  // Mover la ventana si está abierta
-  BrowserWindow.getAllWindows().forEach(win => {
-    const url = win.webContents.getURL();
-    const normalized = url.replace(/\\/g, "/").toLowerCase();
-  if (normalized.includes("renderer/overlays/inputs")) {
-      win.setPosition(x, y);
-    }
+    });
   });
 
-  // Actualizar Manager en vivo
-  BrowserWindow.getAllWindows().forEach(win => {
-    if (win.getTitle() === "Overlay Manager") {
-      win.webContents.send("manager:update-overlay-fields", { x, y });
-    }
-  });
+
 });
 
 
 
+// Limpiar shortcuts al cerrar app
+app.on("will-quit", () => {
+  globalShortcut.unregisterAll();
+});
+
+// Cierre total si todas las ventanas cierran
 app.on("window-all-closed", () => app.quit());

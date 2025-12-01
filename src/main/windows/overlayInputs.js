@@ -4,8 +4,6 @@ const { loadConfig, saveConfig } = require("../config.js");
 const { startBridge } = require("../python/bridgeRunner");
 
 let win = null;
-let ignoreMouse = true;
-let manualShow = false;
 let isRunningIRacing = false;
 
 const isDev = !app.isPackaged;
@@ -61,7 +59,7 @@ function createOverlayWindow() {
     }
   });
 
-  win.setIgnoreMouseEvents(true, { forward: true });
+  win.setIgnoreMouseEvents(true);
 
   if (isDev) {
     win.webContents.openDevTools({ mode: "detach" });
@@ -116,46 +114,6 @@ function createOverlayWindow() {
         });
       }
     });
-  });
-
-
-  // ------------ SHORTCUTS ------------
-  globalShortcut.register("Control+Shift+O", () => {
-    ignoreMouse = !ignoreMouse;
-
-    if (ignoreMouse) win.setIgnoreMouseEvents(true);
-    else win.setIgnoreMouseEvents(false);
-
-    win.webContents.send("ignore-changed", ignoreMouse);
-  });
-
-  globalShortcut.register("Control+Shift+Q", () => {
-    app.quit();
-  });
-
-  globalShortcut.register("Control+Shift+S", () => {
-    if (!isRunningIRacing) {
-      manualShow = !manualShow;
-      if (manualShow && inputsOverlayEnabled()) win.show();
-      else win.hide();
-    }
-  });
-
-
-  // ---------- IPC ----------
-  ipcMain.on("overlay-show", () => {
-    if (inputsOverlayEnabled() && win) {
-      win.show();
-    }
-  });
-
-  ipcMain.on("overlay-hide", () => win.hide());
-
-  ipcMain.on("iracing-state", (_, running) => {
-    isRunningIRacing = !!running;
-    if (isRunningIRacing) {
-      manualShow = false;
-    }
   });
 
   return win;

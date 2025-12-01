@@ -5,8 +5,11 @@ const configPath = path.join(__dirname, "..", "config.json");
 
 function loadConfig() {
   try {
-    return JSON.parse(fs.readFileSync(configPath, "utf8"));
-  } catch (e) {
+    if (!fs.existsSync(configPath)) return {};
+    const raw = fs.readFileSync(configPath, 'utf8') || '{}';
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error('Error leyendo config.json:', err);
     return {};
   }
 }

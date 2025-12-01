@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('managerAPI', {
-  requestOverlayState: (overlayName) =>
+  getOverlayState: (overlayName) =>
     ipcRenderer.invoke('manager:getOverlayState', overlayName),
 
   toggleOverlay: (overlayName, state) =>

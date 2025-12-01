@@ -1,74 +1,109 @@
-const sidebarItems = document.querySelectorAll('.overlay-item');
-const currentOverlayEl = document.getElementById('current-overlay');
-const toggleEl = document.getElementById('toggle-overlay');
-const contentInner = document.getElementById("content-inner");
+// src/renderer/manager/renderer.js
 
-let currentOverlay =
-  document.querySelector('.overlay-item.selected')?.dataset?.overlay || 'inputs';
+// --- SELECTORES CORRECTOS ---
+const sidebarItems = document.querySelectorAll(".sidebar-item");
+const currentOverlayEl = document.getElementById("current-overlay");
+const contentInner = document.querySelector("#content-body");
 
-  // Función para cargar panel dinámico
+// overlay inicial
+let currentOverlay = "inputs";
+
+
+// ---------------------------------------------------------
+// Función para cargar dinámicamente un panel según overlay
+// ---------------------------------------------------------
 async function loadPanelForOverlay(overlayName, config, saveCallback) {
+
   if (overlayName === "inputs") {
     const module = await import("./panels/inputsPanel.js");
     module.render(contentInner, config);
     module.init(contentInner, saveCallback);
   }
+
+  // actualizar título bonito estilo Discord
+  const formattedName =
+    overlayName.charAt(0).toUpperCase() + overlayName.slice(1);
+
+  if (currentOverlayEl)
+    currentOverlayEl.innerText = `Configuración de ${formattedName}`;
 }
 
+
+// ---------------------------------------------------------
+// Guardar configuración del overlay actual
+// ---------------------------------------------------------
 function saveOverlayConfig(update) {
   window.managerAPI.updateOverlayConfig(currentOverlay, update);
 }
 
+
+// ---------------------------------------------------------
+// Actualización de campos cuando el main manda updates
+// ---------------------------------------------------------
 function updatePanelFields(fields) {
-  // solo si estamos editando el overlay actual
   if (currentOverlay !== "inputs") return;
 
+  const toggleEl = document.getElementById("toggle-overlay");
   const x = document.getElementById("inputs-x");
   const y = document.getElementById("inputs-y");
   const w = document.getElementById("inputs-width");
   const h = document.getElementById("inputs-height");
+  const o = document.getElementById("inputs-opacity");
 
-  if (!x) return; // el panel puede no estar cargado
+  if (!x) return; // panel aún no montado
 
+  if (fields.enabled !== undefined && toggleEl) toggleEl.checked = fields.enabled;
   if (fields.x !== undefined) x.value = fields.x;
   if (fields.y !== undefined) y.value = fields.y;
   if (fields.width !== undefined) w.value = fields.width;
   if (fields.height !== undefined) h.value = fields.height;
+  if (fields.opacity !== undefined && o) o.value = fields.opacity;
 }
 
 
-// Cambia el overlay seleccionado
+// ---------------------------------------------------------
+// Sidebar: cambiar de overlay
+// ---------------------------------------------------------
 sidebarItems.forEach((item) => {
-  item.addEventListener('click', () => {
-    sidebarItems.forEach((el) => el.classList.remove('selected'));
-    item.classList.add('selected');
+  item.addEventListener("click", () => {
+
+    // UI sidebar
+    sidebarItems.forEach((el) => el.classList.remove("selected"));
+    item.classList.add("selected");
 
     currentOverlay = item.dataset.overlay;
-    currentOverlayEl.innerText = currentOverlay;
 
+    // pedir config al main
+    window.managerAPI.getOverlayState(currentOverlay).then((state) => {
+      loadPanelForOverlay(
+        currentOverlay,
+        { ...state.config, enabled: state.enabled },
+        saveOverlayConfig
+      );
+    });
+
+    // avisar al main qué overlay está seleccionado (si es necesario)
     window.managerAPI.selectOverlay(currentOverlay);
-
-    window.managerAPI.requestOverlayState(currentOverlay).then((state) => {
-        toggleEl.checked = !!state.enabled;
-        loadPanelForOverlay(currentOverlay, state.config || {}, saveOverlayConfig);
-        });
   });
 });
 
-// Interruptor ON/OFF
-toggleEl.addEventListener('change', () => {
-  const state = toggleEl.checked;
-  window.managerAPI.toggleOverlay(currentOverlay, state);
-});
 
-// Cargar estado inicial al abrir la ventana
-window.addEventListener('DOMContentLoaded', () => {
-    window.managerAPI.onOverlayFieldsUpdate((fields) => {
-        updatePanelFields(fields);
-    });
+// ---------------------------------------------------------
+// Inicialización al abrir el Manager
+// ---------------------------------------------------------
+window.addEventListener("DOMContentLoaded", () => {
 
-    window.managerAPI.requestOverlayState(currentOverlay).then((state) => {
-        toggleEl.checked = !!state.enabled;
-        loadPanelForOverlay(currentOverlay, state.config || {}, saveOverlayConfig);
-    });
+  // recibir updates del main en tiempo real
+  window.managerAPI.onOverlayFieldsUpdate((fields) => {
+    updatePanelFields(fields);
+  });
+
+  // cargar overlay inicial
+  window.managerAPI.getOverlayState(currentOverlay).then((state) => {
+    loadPanelForOverlay(
+      currentOverlay,
+      { ...state.config, enabled: state.enabled },
+      saveOverlayConfig
+    );
+  });
 });
