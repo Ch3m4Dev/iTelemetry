@@ -1,6 +1,6 @@
 const { Tray, Menu, app } = require("electron");
 const path = require("path");
-const { createSettingsWindow } = require("../windows/settingsWindow");
+const overlayManager = require("../windows/overlayManager");
 
 let tray = null;
 
@@ -16,16 +16,22 @@ function createTray() {
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: "Overlay Settings",
+      label: "Abrir Manager",
       click: () => {
-        createSettingsWindow();
-      } 
+        overlayManager.create(); // garantiza que exista
+        overlayManager.show();   // la muestra
+    }
     },
     {
       label: "Cerrar Overlay",
       click: () => app.quit()
     }
   ]);
+  tray.on("double-click", () => {
+    overlayManager.create();        // si está destruida, la crea
+    overlayManager.window.show();   // mostrar
+  });
+
   
 
   tray.setToolTip("iTelemetry Overlay");

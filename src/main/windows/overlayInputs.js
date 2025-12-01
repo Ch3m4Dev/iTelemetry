@@ -4,12 +4,15 @@ const { loadConfig, saveConfig } = require("../config.js");
 const { startBridge } = require("../python/bridgeRunner");
 
 let win = null;
-let ignoreMouse = true;
-let pyProc = null;
-let manualShow = false;
 let isRunningIRacing = false;
 
 const isDev = !app.isPackaged;
+
+function inputsOverlayEnabled() {
+  const cfg = loadConfig();
+  return cfg?.overlays?.inputs?.enabled !== false; // true por defecto
+}
+
 
 // POSICIÓN POR DEFECTO
 function getDefaultPosition(width, height) {
@@ -22,15 +25,19 @@ function getDefaultPosition(width, height) {
 
 
 function createOverlayWindow() {
+  if(!inputsOverlayEnabled()){
+    return null;
+  }
   startBridge();
   // ---- CONFIG DEL OVERLAY ----
   let cfg = loadConfig();
 
-  const width = cfg.width ?? 920;
-  const height = cfg.height ?? 260;
+  const oCfg = cfg?.overlays?.inputs?.config ?? {};
+  const width = oCfg.width ?? 920;
+  const height = oCfg.height ?? 260;
 
-  const pos = (cfg.x !== undefined && cfg.y !== undefined)
-    ? { x: cfg.x, y: cfg.y }
+  const pos = (oCfg.x !== undefined && oCfg.y !== undefined)
+    ? { x: oCfg.x, y: oCfg.y }
     : getDefaultPosition(width, height);
 
   // ---------- CREAR VENTANA ----------
@@ -52,7 +59,7 @@ function createOverlayWindow() {
     }
   });
 
-  win.setIgnoreMouseEvents(true, { forward: true });
+  win.setIgnoreMouseEvents(true);
 
   if (isDev) {
     win.webContents.openDevTools({ mode: "detach" });
@@ -63,76 +70,50 @@ function createOverlayWindow() {
   // ---- GUARDAR POSICIÓN ----
   win.on("move", () => {
     const [x, y] = win.getPosition();
-    const newCfg = loadConfig();
-    newCfg.x = x;
-    newCfg.y = y;
-    saveConfig(newCfg);
-    
-    // enviar la nueva posicion a la interfaz de settings
-    const payload = {
-      x: Number(x),
-      y: Number(y)
-    };
+    const cfg = loadConfig();
 
-    BrowserWindow.getAllWindows().forEach(win => {
-      if (win.getTitle() === "Ajustes del Overlay") {
-        win.webContents.send("overlay-updated", JSON.stringify(payload));
+    if (!cfg.overlays) cfg.overlays = {};
+    if (!cfg.overlays.inputs) cfg.overlays.inputs = { enabled: true, config: {} };
+    if (!cfg.overlays.inputs.config) cfg.overlays.inputs.config = {};
+
+    cfg.overlays.inputs.config.x = x;
+    cfg.overlays.inputs.config.y = y;
+
+    saveConfig(cfg);
+
+    // Actualizar Manager en vivo
+    BrowserWindow.getAllWindows().forEach(w => {
+      if (w.getTitle() === "Overlay Manager") {
+        w.webContents.send("manager:update-overlay-fields", {
+          x, y
+        });
       }
     });
   });
+
 
   win.on("resize", () => {
     const [w, h] = win.getSize();
     const cfg = loadConfig();
-    cfg.width = w;
-    cfg.height = h;
+
+    if (!cfg.overlays) cfg.overlays = {};
+    if (!cfg.overlays.inputs) cfg.overlays.inputs = { enabled: true, config: {} };
+    if (!cfg.overlays.inputs.config) cfg.overlays.inputs.config = {};
+
+    cfg.overlays.inputs.config.width = w;
+    cfg.overlays.inputs.config.height = h;
+
     saveConfig(cfg);
 
-    // update para settings
-    // JSON plano
-    const payload = {
-      width: Number(w),
-      height: Number(h)
-    };
-
+    // Actualizar Manager en vivo
     BrowserWindow.getAllWindows().forEach(win => {
-      if (win.getTitle() === "Ajustes del Overlay") {
-        win.webContents.send("overlay-updated", JSON.stringify(payload));
+      if (win.getTitle() === "Overlay Manager") {
+        win.webContents.send("manager:update-overlay-fields", {
+          width: w,
+          height: h
+        });
       }
     });
-  });
-
-  // ------------ SHORTCUTS ------------
-  globalShortcut.register("Control+Shift+O", () => {
-    ignoreMouse = !ignoreMouse;
-
-    if (ignoreMouse) win.setIgnoreMouseEvents(true);
-    else win.setIgnoreMouseEvents(false);
-
-    win.webContents.send("ignore-changed", ignoreMouse);
-  });
-
-  globalShortcut.register("Control+Shift+Q", () => {
-    app.quit();
-  });
-
-  globalShortcut.register("Control+Shift+S", () => {
-    if (!isRunningIRacing) {
-      manualShow = !manualShow;
-      if (manualShow) win.show();
-      else win.hide();
-    }
-  });
-
-  // ---------- IPC ----------
-  ipcMain.on("overlay-show", () => win.show());
-  ipcMain.on("overlay-hide", () => win.hide());
-
-  ipcMain.on("iracing-state", (_, running) => {
-    isRunningIRacing = !!running;
-    if (isRunningIRacing) {
-      manualShow = false;
-    }
   });
 
   return win;
