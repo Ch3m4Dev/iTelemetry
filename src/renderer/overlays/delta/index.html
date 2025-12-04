@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<title>iTelemetry Delta Overlay</title>
+<style>
+  :root {
+    --scale: 1;
+    --micro-gap: 6px; /* gap fijo (NO escalar) */
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent !important;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+  }
+
+  body {
+    -webkit-app-region: drag;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* PANEL RAÍZ */
+  #panel {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-sizing: border-box;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: calc(14px * var(--scale));
+    color: #ffffff;
+  }
+
+  #delta-left {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: calc(6px * var(--scale));
+    padding-left: calc(8px * var(--scale));
+  }
+
+  #delta-value {
+    font-size: calc(20px * var(--scale));
+    font-weight: 700;
+    line-height: 1;
+    color: var(--delta-color, #00ff00);
+    text-shadow: 0 0 calc(6px * var(--scale)) rgba(0,0,0,0.6);
+  }
+
+  #estimated-lap {
+    font-size: calc(12px * var(--scale));
+    color: rgba(255,255,255,0.85);
+    text-shadow: 0 0 calc(3px * var(--scale)) rgba(0,0,0,0.5);
+  }
+
+  /* MICROSECTORES */
+#microsector-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  width: auto;
+  max-width: none;
+  padding-right: calc(8px * var(--scale));
+  box-sizing: border-box;
+
+  /* Clave: deja que este bloque crezca hasta donde necesite */
+  flex: 1;
+}
+
+#microsector-bar-bg {
+  width: 100%;
+  padding: calc(2px * var(--scale)) 0;
+  box-sizing: border-box;
+}
+
+#microsector-bar {
+  display: flex;
+  /* gap fijo, perfecto */
+  gap: var(--micro-gap);
+  align-items: center;
+  width: auto;
+  box-sizing: border-box;
+  min-width: calc(20 * (var(--micro-gap) + max(4px, calc(4px * var(--scale)))));
+}
+  .sector {
+    display: flex;
+    gap: var(--micro-gap);
+    flex: 1;
+    align-items: center;
+  }
+
+  .micro {
+    height: calc(7px * var(--scale));
+    flex: 1;
+    background: #444;
+    border-radius: calc(2px * var(--scale));
+    min-width: 4px; /* evita colapsos extremos */
+    box-sizing: border-box;
+  }
+
+  .sector-separator {
+    width: calc(4px);
+    height: calc(7px * var(--scale));
+    background: transparent;
+  }
+
+  @media (max-width: 320px) {
+    #delta-value { font-size: calc(16px * var(--scale)); }
+  }
+</style>
+</head>
+
+<body>
+  <div id="panel" style="
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    overflow: visible;           /* evita recortes */
+    height: auto;                /* evita heights fijos heredados */
+  ">
+
+    <!-- CONTENEDOR SUPERIOR: delta + barra -->
+    <div style="
+      width: 100%;
+      display: flex;
+      align-items: center;     /* Delta alineado con los microsectores */
+      justify-content: flex-start;
+      padding: calc(4px * var(--scale)) calc(8px * var(--scale));
+      box-sizing: border-box;
+    ">
+
+      <!-- Delta -->
+      <div id="delta-value" aria-live="polite"
+        style="
+          margin-right: calc(10px * var(--scale)); /* más pegado */
+          white-space: nowrap;
+        ">
+        -0.00
+      </div>
+
+      <!-- Barra microsectores (no se estira, solo ocupa lo necesario hasta max-width) -->
+      <div style="
+        display: flex;
+        align-items: center;
+        flex: 0 0 auto;       /* <-- evita que crezca (soluciona la 'barrita morada') */
+        width: auto;
+        max-width: 520px;
+        box-sizing: border-box;
+      ">
+        <div id="microsector-bar-bg" style="width: auto; margin-right: 5px; box-sizing: border-box;">
+          <div id="microsector-bar" style="
+            display: flex;
+            width: auto;                /* <-- importante: no 100% */
+            gap: var(--micro-gap);
+            align-items: center;
+            box-sizing: border-box;
+            overflow: visible;         /* que no recorte los puntos */
+          "></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Estimated Lap JUSTO DEBAJO, pegado -->
+    <div id="estimated-lap" style="
+      margin-top: calc(2px * var(--scale)); /* MÁS CERCA */
+      margin-right: calc(30px * var(--scale));
+      font-size: calc(12px * var(--scale));
+      text-align: center;
+      color: rgba(255,255,255,0.85);
+      width: 100%;
+    ">
+      Est. Lap: --:--.---
+    </div>
+
+  </div>
+
+  <script src="./renderer.js"></script>
+</body>
+
+
+
+
+
+</html>

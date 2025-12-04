@@ -5,13 +5,13 @@ export function render(container, config) {
     <div class="row">
       <div class="left">
         <label class="toggle">
-          <input type="checkbox" id="toggle-overlay" ${config.enabled ? "checked" : ""}>
+          <input type="checkbox" id="inputs-enabled" ${config.enabled ? "checked" : ""}>
           <span></span>
         </label>
       </div>
 
       <div class="right">
-        <button id="center-overlay-btn" class="btn-primary small-btn">Centrar overlay</button>
+        <button id="inputs-center-btn" class="btn-primary small-btn">Centrar overlay</button>
       </div>
     </div>
 
@@ -43,51 +43,40 @@ export function render(container, config) {
 }
 
 export function init(container, saveConfigCallback) {
-  const xInput = container.querySelector("#inputs-x");
-  const yInput = container.querySelector("#inputs-y");
-  const wInput = container.querySelector("#inputs-width");
-  const hInput = container.querySelector("#inputs-height");
-  const oInput = container.querySelector("#inputs-opacity");
-  const centerBtn = container.querySelector("#center-overlay-btn");
-  const toggleEl = container.querySelector("#toggle-overlay"); // ahora está dentro del panel
+  const prefix = "inputs";
 
-  // Center button
-  if (centerBtn) {
-    centerBtn.addEventListener("click", () => {
-      try { window.managerAPI.centerOverlay("inputs"); } catch (e) {}
-    });
-  }
+  const enabled = container.querySelector(`#${prefix}-enabled`);
+  const x = container.querySelector(`#${prefix}-x`);
+  const y = container.querySelector(`#${prefix}-y`);
+  const w = container.querySelector(`#${prefix}-width`);
+  const h = container.querySelector(`#${prefix}-height`);
+  const o = container.querySelector(`#${prefix}-opacity`);
+  const centerBtn = container.querySelector(`#${prefix}-center-btn`);
 
-  // Guardar helper
   const save = () => {
-    if (typeof saveConfigCallback === "function") {
-      saveConfigCallback({
-        x: Number(xInput?.value ?? 0),
-        y: Number(yInput?.value ?? 0),
-        width: Number(wInput?.value ?? 920),
-        height: Number(hInput?.value ?? 260),
-        opacity: Number(oInput?.value ?? 100)
-      });
-    }
+    saveConfigCallback({
+      x: Number(x.value),
+      y: Number(y.value),
+      width: Number(w.value),
+      height: Number(h.value),
+      opacity: Number(o.value)
+    });
   };
 
-  // Toggle ON/OFF: EL toggle del panel es la fuente de la verdad
-  if (toggleEl) {
-    // asegurar estado inicial (por si config llegó después)
-    toggleEl.checked = !!toggleEl.checked;
-    toggleEl.addEventListener("change", () => {
-      const enabled = !!toggleEl.checked;
-      try {
-        // Actualiza config.enabled en main
-        window.managerAPI.toggleOverlay("inputs", enabled);
-      } catch (e) {}
-    });
-  }
+  // toggle overlay
+  enabled.addEventListener("change", () => {
+    window.managerAPI.toggleOverlay(prefix, enabled.checked);
+  });
 
-  // Inputs listeners
-  if (xInput) xInput.addEventListener("change", save);
-  if (yInput) yInput.addEventListener("change", save);
-  if (wInput) wInput.addEventListener("change", save);
-  if (hInput) hInput.addEventListener("change", save);
-  if (oInput) oInput.addEventListener("input", save);
+  // inputs
+  x.addEventListener("change", save);
+  y.addEventListener("change", save);
+  w.addEventListener("change", save);
+  h.addEventListener("change", save);
+  o.addEventListener("input", save);
+
+  // centrar
+  centerBtn.addEventListener("click", () => {
+    window.managerAPI.centerOverlay(prefix);
+  });
 }
