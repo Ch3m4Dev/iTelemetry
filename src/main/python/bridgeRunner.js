@@ -12,19 +12,26 @@ let _retryDelay = 1000;
 let _retryTimer = null;
 const MAX_RETRY_DELAY = 10000;
 
+
 function allowBridgeStart(state) {
   _bridgeAllowed = !!state;
 }
 
 function getPythonExecAndScript() {
-  const root = app.getAppPath();
+  const root = app.isPackaged ? process.resourcesPath : app.getAppPath();
   const pyScript = path.join(root, "irbridge.py");
 
-  // Windows virtualenv path (mantener compatibilidad)
-  const pythonExec = path.join(root, ".venv", "Scripts", "python.exe");
+  let pythonExec;
+
+  if (app.isPackaged) {
+    pythonExec = path.join(root, "python", "python.exe");
+  } else {
+    pythonExec = path.join(root, ".venv", "Scripts", "python.exe");
+  }
 
   return { pythonExec, pyScript };
 }
+
 
 function _scheduleRestart() {
   if (!_bridgeAllowed) return;
@@ -58,7 +65,7 @@ function startBridge() {
 
   try {
     console.log("[bridge] starting python bridge:", pythonExec, pyScript);
-
+    
     pyProc = spawn(pythonExec, [pyScript], {
       cwd: path.dirname(pyScript),
       env: process.env,
@@ -111,6 +118,7 @@ function stopBridge() {
   }
   pyProc = null;
   _clearRestartSchedule();
+  _scheduleRestart();
 }
 
 module.exports = {

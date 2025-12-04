@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut } = require("electron");
+const { app, globalShortcut } = require("electron");
 const { createOverlayWindow } = require("./windows/overlayInputs");
 const { createOverlayWindow: createDeltaOverlayWindow } = require("./windows/overlayDelta");
 const { loadConfig } = require("./config");
@@ -7,7 +7,7 @@ const { setupAutoUpdate } = require("./update/update");
 const overlayManager = require('./windows/overlayManager');
 const { getActiveOverlays } = require("./utils/overlayUtils");
 const { setupOverlaysIPC } = require("./ipc/overlaysIPC");
-const { startBridge } = require("./python/bridgeRunner");   // <-- AÑADIR ESTA LINEA
+const { startBridge, stopBridge } = require("./python/bridgeRunner");
 const { ipcMain } = require("electron");
 
 const path = require('path');
@@ -175,6 +175,11 @@ ipcMain.on("overlay-show", () => {
 // Limpiar shortcuts al cerrar app
 app.on("will-quit", () => {
   globalShortcut.unregisterAll();
+});
+
+// Limpiar shortcuts al cerrar app
+app.on("before-quit", () => {
+  stopBridge();
 });
 
 // Cierre total si todas las ventanas cierran

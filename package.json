@@ -1,6 +1,6 @@
 {
   "name": "itelemetry",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Overlay: throttle, brake, clutch last seconds graph",
   "main": "src/main/main.js",
   "scripts": {
