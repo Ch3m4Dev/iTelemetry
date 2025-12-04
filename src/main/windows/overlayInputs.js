@@ -1,10 +1,8 @@
-const { BrowserWindow, globalShortcut, screen, ipcMain, app } = require("electron");
+const { BrowserWindow, screen, ipcMain, app } = require("electron");
 const path = require("path");
 const { loadConfig, saveConfig } = require("../config.js");
-const { startBridge } = require("../python/bridgeRunner");
 
 let win = null;
-let isRunningIRacing = false;
 
 const isDev = !app.isPackaged;
 
@@ -28,7 +26,17 @@ function createOverlayWindow() {
   if(!inputsOverlayEnabled()){
     return null;
   }
-  startBridge();
+
+  // Si ya tenemos ventana y no está destruida, devolverla (singleton)
+  try {
+    if (win && !win.isDestroyed()) {
+      return win;
+    }
+  } catch (e) {
+    // si get call falla, limpiamos referencia y seguimos
+    win = null;
+  }
+
   // ---- CONFIG DEL OVERLAY ----
   let cfg = loadConfig();
 
@@ -66,6 +74,7 @@ function createOverlayWindow() {
   }
 
   win.loadFile(path.join(__dirname, "..", "..", "renderer", "overlays", "inputs", "index.html"));
+  win.hide();
 
   // ---- GUARDAR POSICIÓN ----
   win.on("move", () => {
@@ -83,7 +92,8 @@ function createOverlayWindow() {
 
     // Actualizar Manager en vivo
     BrowserWindow.getAllWindows().forEach(w => {
-      if (w.getTitle() === "Overlay Manager") {
+      const url = w.webContents.getURL().replace(/\\/g, "/").toLowerCase();
+      if (url.includes("renderer/manager/index.html")) {
         w.webContents.send("manager:update-overlay-fields", {
           x, y
         });
@@ -92,28 +102,35 @@ function createOverlayWindow() {
   });
 
 
+
   win.on("resize", () => {
-    const [w, h] = win.getSize();
-    const cfg = loadConfig();
+  const [w, h] = win.getSize();
+  const cfg = loadConfig();
 
-    if (!cfg.overlays) cfg.overlays = {};
-    if (!cfg.overlays.inputs) cfg.overlays.inputs = { enabled: true, config: {} };
-    if (!cfg.overlays.inputs.config) cfg.overlays.inputs.config = {};
+  if (!cfg.overlays) cfg.overlays = {};
+  if (!cfg.overlays.inputs) cfg.overlays.inputs = { enabled: true, config: {} };
+  if (!cfg.overlays.inputs.config) cfg.overlays.inputs.config = {};
 
-    cfg.overlays.inputs.config.width = w;
-    cfg.overlays.inputs.config.height = h;
+  cfg.overlays.inputs.config.width = w;
+  cfg.overlays.inputs.config.height = h;
 
-    saveConfig(cfg);
+  saveConfig(cfg);
 
-    // Actualizar Manager en vivo
-    BrowserWindow.getAllWindows().forEach(win => {
-      if (win.getTitle() === "Overlay Manager") {
-        win.webContents.send("manager:update-overlay-fields", {
-          width: w,
-          height: h
-        });
-      }
-    });
+  // Actualizar Manager en vivo
+  BrowserWindow.getAllWindows().forEach(mw => {
+    const url = mw.webContents.getURL().replace(/\\/g, "/").toLowerCase();
+    if (url.includes("renderer/manager/index.html")) {
+      mw.webContents.send("manager:update-overlay-fields", {
+        width: w,
+        height: h
+      });
+    }
+  });
+});
+
+    // ---- ACTUALIZACIÓN EN CALIENTE DESDE EL MANAGER ----
+  ipcMain.on("overlay:config-update-inputs", (_, newCfg) => {
+    applyOverlayConfig(newCfg);
   });
 
   return win;
@@ -127,6 +144,9 @@ function applyOverlayConfig(cfg) {
   }
   if (typeof cfg.width === "number" && typeof cfg.height === "number") {
     win.setSize(cfg.width, cfg.height);
+  }
+  if (typeof cfg.opacity === "number") {
+    win.setOpacity(cfg.opacity / 100);
   }
 }
 

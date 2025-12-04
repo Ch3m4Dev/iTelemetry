@@ -1,10 +1,14 @@
-const { app, ipcMain, BrowserWindow, globalShortcut } = require("electron");
+const { app, BrowserWindow, globalShortcut } = require("electron");
 const { createOverlayWindow } = require("./windows/overlayInputs");
+const { createOverlayWindow: createDeltaOverlayWindow } = require("./windows/overlayDelta");
+const { loadConfig } = require("./config");
 const { createTray } = require("./tray/tray");
 const { setupAutoUpdate } = require("./update/update");
 const overlayManager = require('./windows/overlayManager');
 const { getActiveOverlays } = require("./utils/overlayUtils");
 const { setupOverlaysIPC } = require("./ipc/overlaysIPC");
+const { startBridge } = require("./python/bridgeRunner");   // <-- AÑADIR ESTA LINEA
+const { ipcMain } = require("electron");
 
 const path = require('path');
 const fs = require('fs');
@@ -27,12 +31,58 @@ app.whenReady().then(() => {
     isRunningIRacing 
   });
 
-  // Crear overlays, tray, IPC y ventana del manager
-  createOverlayWindow();
-  createTray();
-
   const manager = overlayManager;
   manager.create();
+
+   // Crear overlay Inputs si está activado
+  try {
+    const cfg = loadConfig();
+    if (cfg?.overlays?.inputs?.enabled === true) {
+      const win = createOverlayWindow();
+      if (win) win.hide(); 
+    }
+  } catch (e) {
+    console.error("Error creando overlay Inputs:", e);
+  }
+
+  // Crear overlay Delta si está activado
+  try {
+    const cfg = loadConfig();
+    if (cfg?.overlays?.delta?.enabled === true) {
+      const win = createDeltaOverlayWindow();
+      if (win) win.hide(); 
+    }
+  } catch (e) {
+    console.error("Error creando overlay Delta:", e);
+  }
+
+  // ---------------------------------------------
+  // Arrancar el bridge python AL FINAL
+  // sin bloquear el arranque de la app
+  // ---------------------------------------------
+  setTimeout(() => {
+    try {
+      startBridge();
+    } catch (e) {
+      console.error("Error arrancando bridge python:", e);
+    }
+  }, 150);
+
+  createTray();
+
+  // --- FUERZA OCULTAR TODOS LOS OVERLAYS ACTIVOS EN ARRANQUE ---
+  setTimeout(() => {
+    const overlays = getActiveOverlays();
+    overlays.forEach(win => {
+      try {
+        const url = win.webContents.getURL().replace(/\\/g, "/").toLowerCase();
+        if (!url.includes("renderer/manager/index.html")) {
+          win.hide();
+        }
+      } catch {}
+    });
+  }, 300);
+
 
   if (app.isPackaged) {
     setupAutoUpdate();
@@ -104,6 +154,20 @@ app.whenReady().then(() => {
   });
 
 
+});
+
+ipcMain.on("overlay-hide", () => {
+  const overlays = getActiveOverlays();
+  overlays.forEach(win => {
+    try { win.hide(); } catch {}
+  });
+});
+
+ipcMain.on("overlay-show", () => {
+  const overlays = getActiveOverlays();
+  overlays.forEach(win => {
+    try { win.show(); } catch {}
+  });
 });
 
 

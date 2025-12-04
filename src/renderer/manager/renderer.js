@@ -1,16 +1,17 @@
 // src/renderer/manager/renderer.js
 
-// --- SELECTORES CORRECTOS ---
+// --- SELECTORES ---
 const sidebarItems = document.querySelectorAll(".sidebar-item");
 const currentOverlayEl = document.getElementById("current-overlay");
 const contentInner = document.querySelector("#content-body");
+const centerBtn = document.getElementById("center-overlay");
 
 // overlay inicial
 let currentOverlay = "inputs";
 
 
 // ---------------------------------------------------------
-// Función para cargar dinámicamente un panel según overlay
+// Carga dinámica del panel (Inputs / Delta / futuros overlays)
 // ---------------------------------------------------------
 async function loadPanelForOverlay(overlayName, config, saveCallback) {
 
@@ -20,7 +21,13 @@ async function loadPanelForOverlay(overlayName, config, saveCallback) {
     module.init(contentInner, saveCallback);
   }
 
-  // actualizar título bonito estilo Discord
+  if (overlayName === "delta") {
+    const module = await import("./panels/deltaPanel.js");
+    module.render(contentInner, config);
+    module.init(contentInner, saveCallback);
+  }
+
+  // título
   const formattedName =
     overlayName.charAt(0).toUpperCase() + overlayName.slice(1);
 
@@ -30,7 +37,7 @@ async function loadPanelForOverlay(overlayName, config, saveCallback) {
 
 
 // ---------------------------------------------------------
-// Guardar configuración del overlay actual
+// Enviar cambios de campos al main
 // ---------------------------------------------------------
 function saveOverlayConfig(update) {
   window.managerAPI.updateOverlayConfig(currentOverlay, update);
@@ -38,19 +45,21 @@ function saveOverlayConfig(update) {
 
 
 // ---------------------------------------------------------
-// Actualización de campos cuando el main manda updates
+// UPDATE en caliente (desde overlayInputs/Delta win.on("move"/"resize"))
+// Funciona para todos los overlays automáticamente
 // ---------------------------------------------------------
 function updatePanelFields(fields) {
-  if (currentOverlay !== "inputs") return;
+  const prefix = currentOverlay; // "inputs" o "delta"
 
-  const toggleEl = document.getElementById("toggle-overlay");
-  const x = document.getElementById("inputs-x");
-  const y = document.getElementById("inputs-y");
-  const w = document.getElementById("inputs-width");
-  const h = document.getElementById("inputs-height");
-  const o = document.getElementById("inputs-opacity");
+  const toggleEl = document.getElementById(`${prefix}-enabled`);
+  const x = document.getElementById(`${prefix}-x`);
+  const y = document.getElementById(`${prefix}-y`);
+  const w = document.getElementById(`${prefix}-width`);
+  const h = document.getElementById(`${prefix}-height”`);
+  const o = document.getElementById(`${prefix}-opacity`);
 
-  if (!x) return; // panel aún no montado
+  // si el panel no está montado todavía, ignoramos
+  if (!x) return;
 
   if (fields.enabled !== undefined && toggleEl) toggleEl.checked = fields.enabled;
   if (fields.x !== undefined) x.value = fields.x;
@@ -67,13 +76,11 @@ function updatePanelFields(fields) {
 sidebarItems.forEach((item) => {
   item.addEventListener("click", () => {
 
-    // UI sidebar
     sidebarItems.forEach((el) => el.classList.remove("selected"));
     item.classList.add("selected");
 
     currentOverlay = item.dataset.overlay;
 
-    // pedir config al main
     window.managerAPI.getOverlayState(currentOverlay).then((state) => {
       loadPanelForOverlay(
         currentOverlay,
@@ -82,23 +89,28 @@ sidebarItems.forEach((item) => {
       );
     });
 
-    // avisar al main qué overlay está seleccionado (si es necesario)
     window.managerAPI.selectOverlay(currentOverlay);
   });
 });
 
 
 // ---------------------------------------------------------
-// Inicialización al abrir el Manager
+// Botón centrar overlay (ahora funciona Inputs + Delta)
+// ---------------------------------------------------------
+centerBtn.addEventListener("click", () => {
+  window.managerAPI.centerOverlay(currentOverlay);
+});
+
+
+// ---------------------------------------------------------
+// Inicialización al arrancar Manager
 // ---------------------------------------------------------
 window.addEventListener("DOMContentLoaded", () => {
 
-  // recibir updates del main en tiempo real
   window.managerAPI.onOverlayFieldsUpdate((fields) => {
     updatePanelFields(fields);
   });
 
-  // cargar overlay inicial
   window.managerAPI.getOverlayState(currentOverlay).then((state) => {
     loadPanelForOverlay(
       currentOverlay,

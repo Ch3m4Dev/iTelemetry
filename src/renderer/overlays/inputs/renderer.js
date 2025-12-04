@@ -1,3 +1,4 @@
+// src/renderer/overlays/inputs/renderer.js
 const canvas = document.getElementById("telemetryCanvas");
 const panel = document.getElementById("panel");
 const ctx = canvas.getContext("2d");
@@ -11,7 +12,34 @@ const bottomPadding = 1;
 const topPadding = 1;
 const minGraphHeight = 28;
 
-// ---------- resize (usa padding real del panel) ----------
+// Estado inicial: overlay activado
+window.__overlayEnabled = true;
+
+// ------------------------------
+// CONFIG UPDATE (solo 1 handler)
+// ------------------------------
+if (window.overlayAPI) {
+  window.overlayAPI.onConfigUpdate((cfg) => {
+    if (cfg.enabled === false) {
+      window.__overlayEnabled = false;
+      if (ws) try { ws.close(); } catch(e){}
+      ws = null;
+      resetRetries();
+      hideOverlaySafe();
+      return;
+    }
+
+    if (cfg.enabled === true) {
+      window.__overlayEnabled = true;
+      resetRetries();
+      connectWS();
+    }
+
+    applyOverlayConfig(cfg);
+  });
+}
+
+// ---------- resize ----------
 function resizeCanvasReal() {
   const rect = panel.getBoundingClientRect();
   const style = getComputedStyle(panel);
@@ -21,50 +49,58 @@ function resizeCanvasReal() {
   const paddingTop = parseFloat(style.paddingTop) || 0;
   const paddingBottom = parseFloat(style.paddingBottom) || 0;
 
-  // dimensiones interiores visibles (CSS pixels)
   const cssW = Math.max(120, Math.round(rect.width - paddingLeft - paddingRight));
   const cssH = Math.max(40, Math.round(rect.height - paddingTop - paddingBottom));
 
   const dpr = window.devicePixelRatio || 1;
 
-  // estilo CSS para que el canvas ocupe exactamente el interior del panel
   canvas.style.width = cssW + "px";
   canvas.style.height = cssH + "px";
 
-  // tamaño real en pixels del canvas
   canvas.width = Math.round(cssW * dpr);
   canvas.height = Math.round(cssH * dpr);
 
-  // escalar el contexto para dibujar en coordenadas CSS (más cómodo)
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  // devolver valores útiles
-  return { cssW, cssH, dpr, paddingLeft, paddingRight, paddingTop, paddingBottom, rect };
+  return { cssW, cssH };
 }
 
-// inicial y onresize
 let dims = resizeCanvasReal();
 window.addEventListener("resize", () => { dims = resizeCanvasReal(); });
 
-// ---------- websocket ----------
+// --------------------------------
+// WEBSOCKET + reconexión
+// --------------------------------
 let ws = null;
 let wsConnected = false;
 let lastMsgTime = 0;
-let shownSinceOpen = false; // para mostrar solo en el primer mensaje válido
-let unchangedCount = 0;     // cuenta mensajes con mismo ts
-const UNCHANGED_THRESHOLD = 4; // tras 4 mensajes idénticos consideramos inactividad
-const INACTIVITY_MS = 3000; // si no llega ningún mensaje en este tiempo, reiniciamos
+let shownSinceOpen = false;
+let unchangedCount = 0;
+
+const UNCHANGED_THRESHOLD = 4;
+const INACTIVITY_MS = 3000;
+
+let retryCount = 0;
+const MAX_RETRIES = 5;
+let retryDelayMs = 1500;
+let retryTimer = null;
+
+function resetRetries() {
+  retryCount = 0;
+  retryDelayMs = 1500;
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+}
 
 function hideOverlaySafe() {
-  try { window.api.overlayHide(); } catch (e) { /* noop */ }
-}
-function showOverlaySafe() {
-  try { window.api.overlayShow(); } catch (e) { /* noop */ }
+  try { window.api.overlayHide(); } catch(e){}
 }
 
-// Notificar al main que iRacing NO está enviando datos
+function showOverlaySafe() {
+  try { window.api.overlayShow(); } catch(e){}
+}
+
 function setIracingRunning(state) {
-  try { window.api.setIracingState(!!state); } catch (e) { /* noop */ }
+  try { window.api.setIracingState(!!state); } catch(e){}
 }
 
 function clearSamples() {
@@ -73,114 +109,125 @@ function clearSamples() {
   unchangedCount = 0;
 }
 
-// Ocultar por defecto al arrancar
-hideOverlaySafe();
-setIracingRunning(false); // estado inicial: iRacing no está corriendo
-
 function checkInactivity() {
   const now = Date.now();
-  // si no ha llegado mensaje en INACTIVITY_MS y hay un socket abierto, reiniciamos
   if (ws && wsConnected) {
     if (lastMsgTime && (now - lastMsgTime) > INACTIVITY_MS) {
       console.log("[overlay] inactivity timeout - closing socket");
       try { ws.close(); } catch(e){}
-      // onclose hará limpieza y notificará al main
     }
   }
 }
 setInterval(checkInactivity, 1000);
 
+
+function scheduleReconnect() {
+  if (!window.__overlayEnabled) return;
+  if (retryCount >= MAX_RETRIES) return;
+
+  retryCount++;
+  retryDelayMs = Math.min(24000, retryDelayMs * (retryCount === 1 ? 1 : 2));
+
+  if (retryTimer) clearTimeout(retryTimer);
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    connectWS();
+  }, retryDelayMs);
+}
+
+
+// --------------------------------
+// FIX REAL: connectWS funcional
+// --------------------------------
 function connectWS() {
+  // No conectar si overlay está apagado
+  if (!window.__overlayEnabled) return;
+
+  // Evitar reconexiones infinitas
+  if (retryCount >= MAX_RETRIES) return;
+
+  // Si ya hay socket conectando o conectado → no hacer nada
   if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
 
-  // limpiar socket viejo
+  // Limpiar socket viejo
   try {
     if (ws) {
       ws.onopen = ws.onclose = ws.onerror = ws.onmessage = null;
       ws = null;
     }
-  } catch (e) {}
+  } catch(e){}
 
   shownSinceOpen = false;
   lastMsgTime = 0;
   unchangedCount = 0;
 
-  ws = new WebSocket("ws://localhost:3030");
+  console.log("[renderer] connectWS called");  // DEBUG IMPORTANTE
+
+  try {
+    ws = new WebSocket("ws://localhost:3030");
+  } catch (e) {
+    scheduleReconnect();
+    return;
+  }
 
   ws.onopen = () => {
     wsConnected = true;
+    resetRetries();
     lastMsgTime = 0;
-    console.log("[renderer] ws.onopen");
+    console.log("[renderer] ws.onopen");  // DEBUG
   };
 
   ws.onmessage = (msg) => {
     lastMsgTime = Date.now();
-    console.log("[renderer] ws.onmessage raw:", msg.data && msg.data.slice ? msg.data.slice(0,200) : msg.data);
+
     try {
       const data = JSON.parse(msg.data);
-      console.log("[renderer] parsed ts:", data.ts);
+      if (!data || !data.ts) return;
 
-      // Si el payload no tiene ts válido, lo ignoramos (no mostramos)
-      if (!data || !data.ts) {
-        console.log("[renderer] received message without ts, ignoring");
-        return;
-      }
-
-      // Si el timestamp coincide con el último, consideramos que no hay nueva telemetría
       if (data.ts === lastTs) {
         unchangedCount++;
       } else {
-        unchangedCount = 0; // nuevo dato real
+        unchangedCount = 0;
       }
 
-      // Si no hemos mostrado desde la apertura y este es un dato NUEVO, mostramos
       if (!shownSinceOpen && data.ts !== lastTs) {
         shownSinceOpen = true;
-        clearSamples(); // arrancamos buffer limpio
+        clearSamples();
         showOverlaySafe();
-        // Notificamos al main que iRacing está corriendo AHORA
         setIracingRunning(true);
-        console.log("[renderer] first new sample received - showing overlay and set iracing=true");
+        console.log("[renderer] first new sample received");
       }
 
-      // Si recibimos demasiados mensajes sin cambios, consideramos inactividad
       if (unchangedCount >= UNCHANGED_THRESHOLD) {
-        console.log("[renderer] unchangedCount threshold reached - treating as inactive");
-        // ocultar/limpiar y forzar reconexión
+        console.log("[renderer] UNCHANGED -> restart");
         hideOverlaySafe();
-        setIracingRunning(false); // iRacing dejó de mandar datos
+        setIracingRunning(false);
         clearSamples();
         try { ws.close(); } catch(e){}
         return;
       }
 
-      // Sólo empujar sample si ts es nuevo
-      if (data.ts !== lastTs) {
-        pushSample(data);
-      }
-    } catch (e) {
-      console.error("[renderer] Error parseando WS:", e);
-    }
+      if (data.ts !== lastTs) pushSample(data);
+
+    } catch(e){}
   };
 
   ws.onclose = () => {
     wsConnected = false;
-    console.log("[renderer] ws.onclose - hiding and clearing");
+    console.log("[renderer] ws.onclose");
     hideOverlaySafe();
-    setIracingRunning(false); // desconectado -> iRacing no está enviando
+    setIracingRunning(false);
     clearSamples();
 
-    try { ws.onopen = ws.onclose = ws.onerror = ws.onmessage = null; } catch (e) {}
+    try { ws.onopen = ws.onclose = ws.onerror = ws.onmessage = null; } catch(e){}
     ws = null;
-    setTimeout(connectWS, 1500); // reintento rápido
+
+    scheduleReconnect();
   };
 
-  ws.onerror = (e) => {
-    console.log("[overlay] ws.onerror", e && e.message ? e.message : e);
-  };
+  ws.onerror = () => {};
 }
 
-connectWS();
 
 // ---------- push sample ----------
 function pushSample(s) {
@@ -190,7 +237,8 @@ function pushSample(s) {
   if (samples.length > maxSamples) samples.shift();
 }
 
-// ---------- draw ----------
+
+// ---------- draw loop ----------
 function draw() {
   dims = resizeCanvasReal();
   const cssW = dims.cssW;
@@ -210,10 +258,8 @@ function draw() {
   ctx.lineTo(cssW - 0.5, baselineY + 0.5);
   ctx.stroke();
 
-  // reference lines at 25%, 50%, 75%
   const levels = [0.25, 0.5, 0.75];
   ctx.strokeStyle = "rgba(255,255,255,0.07)";
-  ctx.lineWidth = 1;
 
   levels.forEach(lvl => {
     const y = baselineY - lvl * usableH + 0.5;
@@ -236,11 +282,9 @@ function drawLine(field, color, cssW, baselineY, usableH) {
   ctx.beginPath();
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
-  ctx.lineJoin = "round";
-  ctx.lineCap = "round";
 
   const count = samples.length;
-  const denom = Math.max(1, (maxSamples - 1));
+  const denom = Math.max(1, maxSamples - 1);
 
   for (let i = 0; i < count; i++) {
     const s = samples[i];
@@ -254,35 +298,17 @@ function drawLine(field, color, cssW, baselineY, usableH) {
   ctx.stroke();
 }
 
-// debug helper
-window._debugCanvas = () => {
-  console.log(
-    "DEBUG canvas:",
-    canvas.getBoundingClientRect(),
-    "canvas.width/height:",
-    canvas.width,
-    canvas.height,
-    "dpr:",
-    window.devicePixelRatio
-  );
-};
 
-// -------------------- CONFIG DESDE MANAGER --------------------
-
+// ------------ apply config ------------
 function applyOverlayConfig(cfg) {
-  // opacidad (0–100)
   if (cfg.opacity !== undefined) {
     const value = Number(cfg.opacity);
     document.body.style.opacity = value / 100;
   }
 }
 
-// Escucha IPC del Manager
-if (window.overlayAPI) {
-  window.overlayAPI.onConfigUpdate((cfg) => {
-    applyOverlayConfig(cfg);
-  });
-}
-
-
+// ----------------------------
+// ARRANQUE DEL OVERLAY
+// ----------------------------
+connectWS();   // ← OBLIGATORIO
 draw();

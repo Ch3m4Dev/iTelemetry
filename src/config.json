@@ -13,10 +13,18 @@
       "enabled": true,
       "config": {
         "opacity": 100,
-        "x": 1542,
-        "y": 998,
-        "width": 319,
-        "height": 96
+        "x": 1491,
+        "y": 969,
+        "width": 386,
+        "height": 116
+      }
+    },
+    "delta": {
+      "enabled": true,
+      "config": {
+        "x": 1531,
+        "y": 912,
+        "scale": 1.0999999999999999
       }
     }
   }
