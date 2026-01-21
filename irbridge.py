@@ -65,6 +65,11 @@ async def telemetry_loop(ws):
                 sessionState      = safe_read("SessionState", None)
                 sessionTime       = safe_read("SessionTime", None)
 
+                # Wind details
+                windDir = safe_read("WindDir", 0.0)
+                windVel = safe_read("WindVel", 0.0)
+                yawNorth = safe_read("YawNorth", 0.0)
+
                 # DELTA OFICIAL
                 lap_delta_best = safe_read("LapDeltaToSessionBestLap", None)
 
@@ -72,7 +77,7 @@ async def telemetry_loop(ws):
                 payload = {
                     "ts": int(asyncio.get_event_loop().time() * 1000),
 
-                    # Inputs (otro overlay)
+                    # Inputs 
                     "throttle": throttle,
                     "brake": brake,
                     "clutch": clutchNorm,
@@ -92,6 +97,11 @@ async def telemetry_loop(ws):
                     # Estado del coche
                     "PlayerTrackSurface": playerTrackSurface,
                     "IsOnTrack": isOnTrack,
+
+                    # Wind
+                    "WindDir" : windDir,
+                    "WindVel" : windVel,
+                    "YawNorth" : yawNorth,
 
                     # Estado sesión
                     "SessionState": sessionState,

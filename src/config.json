@@ -13,17 +13,17 @@
       "enabled": true,
       "config": {
         "opacity": 100,
-        "x": 1491,
-        "y": 969,
-        "width": 386,
-        "height": 116
+        "x": 1509,
+        "y": 1007,
+        "width": 418,
+        "height": 111
       }
     },
     "delta": {
       "enabled": true,
       "config": {
-        "x": 1531,
-        "y": 912,
+        "x": 1593,
+        "y": 964,
         "scale": 1
       }
     }
