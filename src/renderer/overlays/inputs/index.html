@@ -4,44 +4,155 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>iTelemetry Overlay - Graph</title>
+
 <style>
-  html,body{
-    margin:0;
-    padding:0;
-    background:transparent;
-    overflow:hidden;
-    width:100%;
-    height:100%;
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
   }
 
-  /* Toda la superficie arrastrable por defecto */
-  body{
+  body {
     -webkit-app-region: drag;
   }
 
-  #panel{
-    width:100%;
-    height:100%;
-    background:rgba(8,8,8,0.6);
-    border-radius:8px;
-    padding:1px; /* margen mínimo */
-    box-sizing:border-box;
-    color:#ddd;
-    font-family:Segoe UI, system-ui, Arial;
+  #panel {
+    width: 100%;
+    height: 100%;
+    background: rgba(8,8,8,0.6);
+    border-radius: 8px;
+    padding: 1px;
+    box-sizing: border-box;
+    color: #ddd;
+    font-family: Segoe UI, system-ui, Arial;
+    display: flex;
+    flex-direction: row;
+    gap: 2px;
   }
 
-  #telemetryCanvas{
-    width:100%;
-    height:180px;
-    display:block;
-    border-radius:6px;
+  /* canvas con prioridad REAL de espacio horizontal */
+  #left-wrap {
+    flex: 4 1 auto;       /* <<< más ancho para canvas */
+    min-width: 0;
+    padding: 2px;
+    box-sizing: border-box;
+    -webkit-app-region: drag;
+    display: flex;
+    background: rgba(20,20,20,0.45);
+    border-radius: 6px;
+  }
+
+  #telemetryCanvas {
+    width: 100%;
+    height: 100%;
+    border-radius: 6px;
+    display: block;
+  }
+
+  /* pedales conservan tamaño, pero ya no compiten por ancho */
+  #middle-pedals {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+    -webkit-app-region: drag;
+  }
+
+  .pedal {
+    width: 24px;
+    height: 100px;
+    background: rgba(20,20,20,0.75);
+    border-radius: 4px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 2px;
+    box-sizing: border-box;
+    position: relative;
+  }
+
+  .pedal .bar {
+    width: 60%;
+    height: 0%;
+    border-radius: 3px;
+    background: linear-gradient(#0a0, #0f0);
+  }
+
+  .pedal-val {
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: #ccc;
+    pointer-events: none;
+    font-weight: 500;
+  }
+
+  #right-gear {
+    width: 72px;
+    background: rgba(25,25,25,0.75);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+    -webkit-app-region: drag;
+  }
+
+  #gear {
+    font-size: 38px;
+    font-weight: bold;
+    color: white;
+    line-height: 1;
+  }
+
+  #speed {
+    margin-top: 4px;
+    font-size: 16px;
+    color: white;
+    opacity: 0.9;
   }
 </style>
+
 </head>
 <body>
   <div id="panel">
-    <canvas id="telemetryCanvas"></canvas>
+
+    <div id="left-wrap">
+      <canvas id="telemetryCanvas"></canvas>
+    </div>
+
+    <div id="middle-pedals">
+      <div class="pedal">
+        <span class="pedal-val" id="clutch-val">0</span>
+        <div class="bar" id="clutch-bar"></div>
+      </div>
+
+      <div class="pedal">
+        <span class="pedal-val" id="brake-val">0</span>
+        <div class="bar" id="brake-bar"></div>
+      </div>
+
+      <div class="pedal">
+        <span class="pedal-val" id="throttle-val">0</span>
+        <div class="bar" id="throttle-bar"></div>
+      </div>
+    </div>
+
+    <div id="right-gear">
+      <div id="gear">0</div>
+      <div id="speed">0 km/h</div>
+    </div>
+
   </div>
+
   <script src="./renderer.js"></script>
 </body>
 </html>

@@ -1,6 +1,8 @@
 // src/renderer/overlays/inputs/renderer.js
 const canvas = document.getElementById("telemetryCanvas");
 const panel = document.getElementById("panel");
+const middlePedals = document.getElementById("middle-pedals");
+const rightGear = document.getElementById("right-gear");
 const ctx = canvas.getContext("2d");
 
 let samples = [];
@@ -41,7 +43,7 @@ if (window.overlayAPI) {
 
 // ---------- resize ----------
 function resizeCanvasReal() {
-  const rect = panel.getBoundingClientRect();
+  const rect = document.getElementById("left-wrap").getBoundingClientRect();
   const style = getComputedStyle(panel);
 
   const paddingLeft = parseFloat(style.paddingLeft) || 0;
@@ -66,7 +68,45 @@ function resizeCanvasReal() {
 }
 
 let dims = resizeCanvasReal();
-window.addEventListener("resize", () => { dims = resizeCanvasReal(); });
+resizeOtherElements();
+
+// ----------------------------------------
+// AQUI AÑADIMOS EL MISMO MÉTODO DE RESIZE
+// ----------------------------------------
+function resizeOtherElements() {
+  const rect = panel.getBoundingClientRect();
+  const h = rect.height;
+
+  // altura pedales → misma lógica: valores mínimos y máximos sin romper
+  const pedalH = Math.max(55, Math.min(h * 0.85, 140));
+  document.querySelectorAll(".pedal").forEach(p => {
+    p.style.height = pedalH + "px";
+  });
+
+  // tamaño texto de pedales
+  const pedalFont = Math.max(8, Math.min(11, pedalH / 9));
+  document.querySelectorAll(".pedal-val").forEach(v => {
+    v.style.fontSize = pedalFont + "px";
+  });
+
+  // tamaño font gear → proporción del panel
+  const gearFont = Math.max(24, Math.min(38, h * 0.34));
+  document.getElementById("gear").style.fontSize = gearFont + "px";
+
+  const speedFont = Math.max(12, Math.min(16, gearFont * 0.42));
+  document.getElementById("speed").style.fontSize = speedFont + "px";
+}
+
+// ---------------------------
+// LISTENER ÚNICO (no inventar)
+// ---------------------------
+window.addEventListener("resize", () => {
+  dims = resizeCanvasReal();  // ya existía
+  resizeOtherElements();      // añadido respetando tu patrón
+});
+
+// primera llamada
+resizeOtherElements();
 
 // --------------------------------
 // WEBSOCKET + reconexión
@@ -107,19 +147,34 @@ function clearSamples() {
   samples.length = 0;
   lastTs = 0;
   unchangedCount = 0;
+  clearPedalsAndGear();
+}
+
+
+function clearPedalsAndGear(){
+   // limpiar pedales y valores UI
+  document.getElementById("throttle-bar").style.height = "0%";
+  document.getElementById("brake-bar").style.height = "0%";
+  document.getElementById("clutch-bar").style.height = "0%";
+
+  document.getElementById("throttle-val").textContent = "0";
+  document.getElementById("brake-val").textContent = "0";
+  document.getElementById("clutch-val").textContent = "0";
+
+  // Gear reseteado a neutro
+  document.getElementById("gear").textContent = "N"; 
+  document.getElementById("speed").textContent = "0 km/h";
 }
 
 function checkInactivity() {
   const now = Date.now();
   if (ws && wsConnected) {
     if (lastMsgTime && (now - lastMsgTime) > INACTIVITY_MS) {
-      console.log("[overlay] inactivity timeout - closing socket");
       try { ws.close(); } catch(e){}
     }
   }
 }
 setInterval(checkInactivity, 1000);
-
 
 function scheduleReconnect() {
   if (!window.__overlayEnabled) return;
@@ -135,21 +190,11 @@ function scheduleReconnect() {
   }, retryDelayMs);
 }
 
-
-// --------------------------------
-// FIX REAL: connectWS funcional
-// --------------------------------
 function connectWS() {
-  // No conectar si overlay está apagado
   if (!window.__overlayEnabled) return;
-
-  // Evitar reconexiones infinitas
   if (retryCount >= MAX_RETRIES) return;
-
-  // Si ya hay socket conectando o conectado → no hacer nada
   if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
 
-  // Limpiar socket viejo
   try {
     if (ws) {
       ws.onopen = ws.onclose = ws.onerror = ws.onmessage = null;
@@ -160,8 +205,6 @@ function connectWS() {
   shownSinceOpen = false;
   lastMsgTime = 0;
   unchangedCount = 0;
-
-  console.log("[renderer] connectWS called");  // DEBUG IMPORTANTE
 
   try {
     ws = new WebSocket("ws://localhost:3030");
@@ -174,7 +217,6 @@ function connectWS() {
     wsConnected = true;
     resetRetries();
     lastMsgTime = 0;
-    console.log("[renderer] ws.onopen");  // DEBUG
   };
 
   ws.onmessage = (msg) => {
@@ -195,11 +237,9 @@ function connectWS() {
         clearSamples();
         showOverlaySafe();
         setIracingRunning(true);
-        console.log("[renderer] first new sample received");
       }
 
       if (unchangedCount >= UNCHANGED_THRESHOLD) {
-        console.log("[renderer] UNCHANGED -> restart");
         hideOverlaySafe();
         setIracingRunning(false);
         clearSamples();
@@ -207,14 +247,17 @@ function connectWS() {
         return;
       }
 
-      if (data.ts !== lastTs) pushSample(data);
+      if (data.ts !== lastTs){
+        pushSample(data);
+        updatePedalUI(data);
+        updateGearAndSpeed(data);
+      } 
 
     } catch(e){}
   };
 
   ws.onclose = () => {
     wsConnected = false;
-    console.log("[renderer] ws.onclose");
     hideOverlaySafe();
     setIracingRunning(false);
     clearSamples();
@@ -228,8 +271,6 @@ function connectWS() {
   ws.onerror = () => {};
 }
 
-
-// ---------- push sample ----------
 function pushSample(s) {
   if (!s.ts || s.ts === lastTs) return;
   lastTs = s.ts;
@@ -237,8 +278,46 @@ function pushSample(s) {
   if (samples.length > maxSamples) samples.shift();
 }
 
+function updatePedalUI(data) {
+  // valores ya vienen 0 → 1
+  const t = Math.max(0, Math.min(1, data.throttle));
+  const b = Math.max(0, Math.min(1, data.brake));
+  const c = Math.max(0, Math.min(1, data.clutch));
 
-// ---------- draw loop ----------
+  // bars
+  document.getElementById("throttle-bar").style.height = `${t * 100}%`;
+  document.getElementById("brake-bar").style.height = `${b * 100}%`;
+  document.getElementById("clutch-bar").style.height = `${c * 100}%`;
+
+  // % text (redondeado)
+  document.getElementById("throttle-val").textContent = Math.round(t * 100);
+  document.getElementById("brake-val").textContent = Math.round(b * 100);
+  document.getElementById("clutch-val").textContent = Math.round(c * 100);
+
+  // colores según pedal
+  document.getElementById("throttle-bar").style.background = "linear-gradient(#0a0,#0f0)";
+  document.getElementById("brake-bar").style.background = "linear-gradient(#a00,#f00)";
+  document.getElementById("clutch-bar").style.background = "linear-gradient(#0044ff,#3388ff)";
+}
+
+function updateGearAndSpeed(data) {
+  // ----- GEAR -----
+  let g = data.gear;
+
+  if (g === 0) {
+    document.getElementById("gear").textContent = "N";
+  } else if (g === -1) {
+    document.getElementById("gear").textContent = "R";
+  } else {
+    document.getElementById("gear").textContent = g; // 1..n
+  }
+
+  // ----- SPEED (m/s → km/h) -----
+  const kmh = Math.round((data.speed || 0) * 3.6);
+  document.getElementById("speed").textContent = `${kmh} km/h`;
+}
+
+
 function draw() {
   dims = resizeCanvasReal();
   const cssW = dims.cssW;
@@ -250,7 +329,6 @@ function draw() {
 
   ctx.clearRect(0, 0, cssW, cssH);
 
-  // baseline
   ctx.beginPath();
   ctx.strokeStyle = "rgba(255,255,255,0.06)";
   ctx.lineWidth = 1;
@@ -298,8 +376,6 @@ function drawLine(field, color, cssW, baselineY, usableH) {
   ctx.stroke();
 }
 
-
-// ------------ apply config ------------
 function applyOverlayConfig(cfg) {
   if (cfg.opacity !== undefined) {
     const value = Number(cfg.opacity);
@@ -307,8 +383,8 @@ function applyOverlayConfig(cfg) {
   }
 }
 
-// ----------------------------
+// ----------------------------S
 // ARRANQUE DEL OVERLAY
 // ----------------------------
-connectWS();   // ← OBLIGATORIO
+connectWS();
 draw();
